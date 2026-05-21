@@ -14,15 +14,16 @@ import {
   X,
   Square,
   Check,
-  FileSpreadsheet,
   Loader2,
   AlertCircle,
+  Upload,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { AppLayout } from '@/components/AppLayout';
-import { parseOFX } from '@/lib/ofx-parser';
-import { parseCSVText, detectColumns, applyMapping } from '@/lib/csv-parser';
-import { runMatching } from '@/lib/matching-engine';
+import { parseFile, applyMappingToSource, SOURCE_COLORS } from '@/lib/universal-parser';
+import type { ParsedSource } from '@/lib/universal-parser';
+import { runMatchingMultiSource } from '@/lib/matching-engine';
+import type { TransactionSource } from '@/lib/matching-engine';
 import { saveReconciliation } from '@/lib/reconciliation-store';
 import { CSVColumnMapper } from '@/components/reconciliation/CSVColumnMapper';
 import type { CSVColumnMapping } from '@/lib/csv-parser';
@@ -82,52 +83,37 @@ const TABS: Tab[] = [
   },
 ];
 
-interface AttachedFile {
-  file: File;
-  type: 'ofx' | 'csv';
-  text: string;
-}
-
-type ProcessStep =
-  | 'idle'
-  | 'reading'
-  | 'csv_mapping'
-  | 'matching'
-  | 'saving'
-  | 'done'
-  | 'error';
+const FORMAT_LABEL: Record<string, string> = {
+  ofx: 'OFX',
+  csv: 'CSV',
+  xlsx: 'XLSX',
+  txt: 'TXT',
+  pdf: 'PDF',
+  unknown: '?',
+};
 
 function Index() {
   const navigate = useNavigate();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
   const [value, setValue] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [activeTab, setActiveTab] = useState<string>(TABS[0].id);
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
 
-  // File attachment state
-  const [attachedOFX, setAttachedOFX] = useState<AttachedFile | null>(null);
-  const [attachedCSV, setAttachedCSV] = useState<AttachedFile | null>(null);
+  const [parsedSources, setParsedSources] = useState<ParsedSource[]>([]);
+  const [mappingSource, setMappingSource] = useState<ParsedSource | null>(null);
 
-  // Processing state
-  const [step, setStep] = useState<ProcessStep>('idle');
+  const [processing, setProcessing] = useState(false);
   const [stepLabel, setStepLabel] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // CSV column mapping
-  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
-  const [csvDetected, setCsvDetected] = useState<Partial<CSVColumnMapping>>({});
-  const [csvRows, setCsvRows] = useState<Record<string, string>[]>([]);
-  const [pendingMapping, setPendingMapping] = useState(false);
-
   const current = TABS.find((t) => t.id === activeTab) ?? TABS[0];
 
-  const canSend = !!(attachedOFX && attachedCSV) && step === 'idle';
-
-  useEffect(() => {
-    return () => {};
-  }, []);
+  const readySources = parsedSources.filter((p) => !p.needsMapping && p.transactions.length > 0);
+  const canSend = readySources.length >= 2 && !processing && !mappingSource;
 
   const autoResize = () => {
     const el = textareaRef.current;
@@ -144,204 +130,237 @@ function Index() {
     });
   };
 
+  async function addFiles(files: File[]) {
+    if (files.length === 0) return;
+    setProcessing(true);
+    setStepLabel(`Lendo ${files.length} arquivo(s)…`);
+    setErrorMsg('');
+
+    const newParsed: ParsedSource[] = [];
+    for (const file of files) {
+      try {
+        const parsed = await parseFile(file);
+        newParsed.push(parsed);
+      } catch (err) {
+        setErrorMsg(`Erro ao ler ${file.name}: ${err instanceof Error ? err.message : 'erro desconhecido'}`);
+        setProcessing(false);
+        return;
+      }
+    }
+
+    setParsedSources((prev) => {
+      const updated = [...prev];
+      for (const p of newParsed) {
+        const idx = updated.findIndex((x) => x.fileName === p.fileName);
+        if (idx >= 0) updated[idx] = p;
+        else updated.push(p);
+      }
+      return updated;
+    });
+
+    setProcessing(false);
+    setStepLabel('');
+
+    const needsMapping = newParsed.find((p) => p.needsMapping);
+    if (needsMapping) setMappingSource(needsMapping);
+  }
+
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     e.target.value = '';
+    addFiles(files);
+  }
 
-    for (const file of files) {
-      const ext = file.name.split('.').pop()?.toLowerCase();
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const text = ev.target?.result as string;
-        if (ext === 'ofx') {
-          setAttachedOFX({ file, type: 'ofx', text });
-        } else if (ext === 'csv') {
-          setAttachedCSV({ file, type: 'csv', text });
-        }
-      };
-      reader.readAsText(file, 'utf-8');
-    }
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files);
+    addFiles(files);
+  }
+
+  function removeSource(tempId: string) {
+    setParsedSources((prev) => prev.filter((p) => p.tempId !== tempId));
+  }
+
+  function handleMappingConfirm(mapping: CSVColumnMapping) {
+    if (!mappingSource) return;
+    const txs = applyMappingToSource(mappingSource, mapping);
+    setParsedSources((prev) =>
+      prev.map((p) =>
+        p.tempId === mappingSource.tempId ? { ...p, transactions: txs, needsMapping: false } : p,
+      ),
+    );
+    setMappingSource(null);
+    // Check if another file in the queue needs mapping
+    const nextNeedsMapping = parsedSources.find(
+      (p) => p.tempId !== mappingSource.tempId && p.needsMapping,
+    );
+    if (nextNeedsMapping) setMappingSource(nextNeedsMapping);
   }
 
   async function handleSend() {
     if (!canSend) return;
-    setStep('reading');
-    setStepLabel('Lendo arquivos…');
+    setProcessing(true);
+    setStepLabel('Executando motor de conciliação…');
     setErrorMsg('');
 
     try {
-      // Parse OFX
-      setStepLabel('Analisando extrato bancário (OFX)…');
-      const txsA = parseOFX(attachedOFX!.text);
-      if (txsA.length === 0) throw new Error('Nenhum lançamento encontrado no arquivo OFX.');
+      const sources: TransactionSource[] = readySources.map((p, i) => ({
+        id: p.tempId,
+        fileName: p.fileName,
+        label: p.fileName.replace(/\.[^.]+$/, ''),
+        format: p.format,
+        color: SOURCE_COLORS[i % SOURCE_COLORS.length],
+        transactions: p.transactions,
+      }));
 
-      // Parse CSV headers
-      setStepLabel('Analisando razão contábil (CSV)…');
-      const { headers, rows } = parseCSVText(attachedCSV!.text);
-      if (headers.length === 0) throw new Error('Arquivo CSV inválido ou vazio.');
+      const { matches, divergences } = runMatchingMultiSource(sources);
 
-      const detected = detectColumns(headers);
-      const autoMappingOk =
-        !!detected.dateColumn && !!detected.amountColumn && !!detected.descriptionColumn;
+      setStepLabel('Salvando resultados…');
+      const id = crypto.randomUUID();
+      saveReconciliation({
+        id,
+        prompt: value.trim(),
+        status: 'reviewing',
+        sources,
+        matches,
+        divergences,
+        createdAt: new Date().toISOString(),
+      });
 
-      if (!autoMappingOk) {
-        // Need user to map columns
-        setCsvHeaders(headers);
-        setCsvDetected(detected);
-        setCsvRows(rows);
-        setPendingMapping(true);
-        setStep('csv_mapping');
-        return;
-      }
-
-      await finishProcessing(txsA, rows, detected as CSVColumnMapping);
+      await navigate({ to: '/conciliacao/$id', params: { id } });
     } catch (err) {
-      setStep('error');
       setErrorMsg(err instanceof Error ? err.message : 'Erro ao processar arquivos.');
+      setProcessing(false);
     }
   }
 
-  async function finishProcessing(
-    txsA: ReturnType<typeof parseOFX>,
-    rows: Record<string, string>[],
-    mapping: CSVColumnMapping,
-  ) {
-    setStep('matching');
-    setStepLabel('Executando motor de conciliação…');
-
-    const txsB = applyMapping(rows, mapping);
-    if (txsB.length === 0) throw new Error('Nenhum lançamento válido no arquivo CSV.');
-
-    const { matches, divergences } = runMatching(txsA, txsB);
-
-    setStep('saving');
-    setStepLabel('Salvando resultados…');
-
-    const totalA = txsA.reduce((s, t) => s + Math.abs(t.amount), 0);
-    const totalB = txsB.reduce((s, t) => s + Math.abs(t.amount), 0);
-
-    // Extract period from transactions
-    const datesA = txsA.map((t) => t.postedAt).sort();
-    const datesB = txsB.map((t) => t.postedAt).sort();
-    const allDates = [...datesA, ...datesB].sort();
-    const periodStart = allDates[0] ?? '';
-    const periodEnd = allDates[allDates.length - 1] ?? '';
-
-    // Extract account label from prompt or file name
-    const accountLabel =
-      value.trim() ||
-      attachedOFX!.file.name.replace(/\.ofx$/i, '') + ' × ' + attachedCSV!.file.name.replace(/\.csv$/i, '');
-
-    const id = crypto.randomUUID();
-    saveReconciliation({
-      id,
-      prompt: value.trim(),
-      periodStart,
-      periodEnd,
-      accountLabel,
-      status: 'reviewing',
-      fileAName: attachedOFX!.file.name,
-      fileBName: attachedCSV!.file.name,
-      totalA,
-      totalB,
-      matchedCount: matches.length,
-      divergenceCount: divergences.length,
-      transactionsA: txsA,
-      transactionsB: txsB,
-      matches,
-      divergences,
-      createdAt: new Date().toISOString(),
-    });
-
-    setStep('done');
-    await navigate({ to: '/conciliacao/$id', params: { id } });
-  }
-
-  function handleCSVMappingConfirm(mapping: CSVColumnMapping) {
-    setPendingMapping(false);
-    setStep('matching');
-
-    const txsA = parseOFX(attachedOFX!.text);
-    finishProcessing(txsA, csvRows, mapping).catch((err) => {
-      setStep('error');
-      setErrorMsg(err instanceof Error ? err.message : 'Erro ao processar arquivos.');
-    });
-  }
-
-  const isProcessing = step === 'reading' || step === 'matching' || step === 'saving';
-
   return (
     <AppLayout>
-      {pendingMapping && (
+      {mappingSource && (
         <CSVColumnMapper
-          headers={csvHeaders}
-          detected={csvDetected}
-          onConfirm={handleCSVMappingConfirm}
+          headers={mappingSource.headers ?? []}
+          detected={mappingSource.detectedMapping ?? {}}
+          onConfirm={handleMappingConfirm}
           onCancel={() => {
-            setPendingMapping(false);
-            setStep('idle');
+            removeSource(mappingSource.tempId);
+            setMappingSource(null);
           }}
         />
       )}
 
       <div className="max-w-2xl mx-auto pt-10 pb-24">
         <div
-          className="flex flex-col items-center mb-10 juris-rise"
+          className="flex flex-col items-center mb-8 juris-rise"
           style={{ animationDelay: '60ms' }}
         >
           <h1 className="text-3xl leading-none text-[#0a2520] font-normal tracking-tight">
             Caio, o que deseja consultar?
           </h1>
-          {!attachedOFX || !attachedCSV ? (
+          {readySources.length < 2 ? (
             <p className="text-[13px] text-gray-400 mt-3 text-center">
-              Para conciliação bancária, anexe o extrato <strong>.ofx</strong> e o razão{' '}
-              <strong>.csv</strong> usando o clipe abaixo.
+              Anexe <strong>2 ou mais arquivos</strong> (.ofx, .csv, .xlsx) para iniciar a conciliação.
             </p>
           ) : (
             <p className="text-[13px] text-[#0d9488] mt-3">
-              Arquivos prontos — clique em Enviar para iniciar a conciliação.
+              {readySources.length} fontes prontas — clique em Enviar para iniciar a conciliação.
             </p>
           )}
         </div>
 
-        {/* Attached files preview */}
-        {(attachedOFX || attachedCSV) && (
-          <div className="flex gap-2 mb-3 juris-rise flex-wrap">
-            {attachedOFX && (
-              <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-[12.5px] text-blue-700">
-                <FileText className="w-3.5 h-3.5 shrink-0" />
-                <span className="font-medium">Lado A:</span>
-                <span className="truncate max-w-[140px]">{attachedOFX.file.name}</span>
-                <button
-                  onClick={() => setAttachedOFX(null)}
-                  className="ml-1 text-blue-400 hover:text-blue-700 transition-colors"
+        {/* Drag-and-drop zone */}
+        <div
+          ref={dropZoneRef}
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`mb-4 border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all duration-200 ${
+            isDragging
+              ? 'border-[#0d9488] bg-teal-50/60'
+              : parsedSources.length > 0
+                ? 'border-gray-200 bg-gray-50/40 hover:border-[#0d9488]/40'
+                : 'border-gray-200 bg-gray-50/40 hover:border-[#0d9488]/40 hover:bg-teal-50/20'
+          }`}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".ofx,.qfx,.csv,.xlsx,.xls,.txt"
+            multiple
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+          <Upload className="w-5 h-5 mx-auto mb-2 text-gray-400" />
+          <p className="text-[13px] text-gray-500 font-medium">
+            {isDragging ? 'Solte os arquivos aqui' : 'Arraste arquivos ou clique para selecionar'}
+          </p>
+          <p className="text-[11.5px] text-gray-400 mt-1">
+            Suporta .ofx, .csv, .xlsx, .txt · Qualquer quantidade de fontes
+          </p>
+        </div>
+
+        {/* Attached file chips */}
+        {parsedSources.length > 0 && (
+          <div className="flex gap-2 mb-4 flex-wrap juris-rise">
+            {parsedSources.map((p, i) => {
+              const color = SOURCE_COLORS[i % SOURCE_COLORS.length];
+              const ready = !p.needsMapping && p.transactions.length > 0;
+              return (
+                <div
+                  key={p.tempId}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] border"
+                  style={{
+                    backgroundColor: `${color}15`,
+                    borderColor: `${color}40`,
+                    color,
+                  }}
                 >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            )}
-            {attachedCSV && (
-              <div className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 text-[12.5px] text-purple-700">
-                <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
-                <span className="font-medium">Lado B:</span>
-                <span className="truncate max-w-[140px]">{attachedCSV.file.name}</span>
-                <button
-                  onClick={() => setAttachedCSV(null)}
-                  className="ml-1 text-purple-400 hover:text-purple-700 transition-colors"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            )}
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: color }}
+                  />
+                  <span className="font-medium truncate max-w-[160px]">{p.fileName}</span>
+                  <span
+                    className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                    style={{ backgroundColor: `${color}25` }}
+                  >
+                    {FORMAT_LABEL[p.format]}
+                  </span>
+                  {ready && (
+                    <span className="text-[10px] text-gray-500">
+                      {p.transactions.length} lanç.
+                    </span>
+                  )}
+                  {p.needsMapping && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setMappingSource(p); }}
+                      className="text-[10px] underline opacity-70 hover:opacity-100"
+                    >
+                      Mapear colunas
+                    </button>
+                  )}
+                  {p.transactions.length === 0 && !p.needsMapping && (
+                    <span className="text-[10px] opacity-70">vazio</span>
+                  )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); removeSource(p.tempId); }}
+                    className="ml-1 opacity-60 hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
 
         {/* Error message */}
-        {step === 'error' && (
+        {errorMsg && (
           <div className="flex items-center gap-2 mb-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-[13px] text-red-700">
             <AlertCircle className="w-4 h-4 shrink-0" />
             {errorMsg}
-            <button onClick={() => setStep('idle')} className="ml-auto text-red-400 hover:text-red-700">
+            <button onClick={() => setErrorMsg('')} className="ml-auto text-red-400 hover:text-red-700">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -365,13 +384,13 @@ function Index() {
                 autoResize();
               }}
               rows={1}
-              disabled={isListening || isProcessing}
+              disabled={isListening || processing}
               placeholder={
                 isListening
                   ? 'Escutando…'
-                  : isProcessing
+                  : processing
                     ? stepLabel
-                    : attachedOFX && attachedCSV
+                    : canSend
                       ? 'Descreva o período ou conta (opcional)…'
                       : 'Descreva sua consulta contábil...'
               }
@@ -382,18 +401,9 @@ function Index() {
           </div>
           <div className="flex items-center justify-between px-3 py-2.5">
             <div className="flex items-center gap-1.5">
-              {/* Hidden file input accepts both .ofx and .csv */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".ofx,.csv"
-                multiple
-                className="hidden"
-                onChange={handleFileSelect}
-              />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isProcessing}
+                disabled={processing}
                 className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-[#0d9488] hover:bg-gray-50 transition-colors disabled:opacity-40"
                 aria-label="Anexar"
               >
@@ -408,7 +418,7 @@ function Index() {
               </button>
             </div>
             <div className="flex items-center gap-1.5">
-              {!isListening && !isProcessing && (
+              {!isListening && !processing && (
                 <>
                   <span className="hidden sm:flex items-center gap-1 text-[11px] text-gray-400 pr-2">
                     <Command className="w-3 h-3" /> + Enter
@@ -434,7 +444,7 @@ function Index() {
                   </button>
                 </>
               )}
-              {isProcessing && (
+              {processing && (
                 <div className="flex items-center gap-2 pr-1">
                   <span className="text-[12px] text-[#0d9488]">{stepLabel}</span>
                   <Loader2 className="w-4 h-4 text-[#0d9488] animate-spin" />
@@ -471,29 +481,8 @@ function Index() {
           </div>
         </div>
 
-        {/* Quick attach hint */}
-        {!attachedOFX && !attachedCSV && (
-          <div className="mt-3 flex items-center justify-center gap-4 text-[12px] text-gray-400">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1 hover:text-[#0d9488] transition-colors"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              Anexar extrato .ofx (Lado A)
-            </button>
-            <span>·</span>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1 hover:text-[#0d9488] transition-colors"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              Anexar razão .csv (Lado B)
-            </button>
-          </div>
-        )}
-
         {/* Suggestions panel */}
-        {showSuggestions && step === 'idle' && (
+        {showSuggestions && !processing && (
           <div
             className="mt-5 juris-rise rounded-2xl border border-gray-200/70 bg-gray-50/60 shadow-[0_1px_2px_rgba(10,37,32,0.04)] overflow-hidden"
             style={{ animationDelay: '260ms' }}

@@ -1,10 +1,22 @@
-import type { OFXTransaction } from './ofx-parser';
-import type { CSVTransaction } from './csv-parser';
+import type { NormalizedTransaction } from './universal-parser';
+
+export type { NormalizedTransaction };
+
+export interface TransactionSource {
+  id: string;
+  fileName: string;
+  label: string;
+  format: string;
+  color: string;
+  transactions: NormalizedTransaction[];
+}
 
 export interface Match {
   id: string;
   transactionAId: string;
   transactionBId: string;
+  sourceAId: string;
+  sourceBId: string;
   matchType: 'exact' | 'fuzzy_date' | 'fuzzy_amount' | 'description';
   confidence: number;
   dateDiffDays: number;
@@ -14,9 +26,8 @@ export interface Match {
 
 export interface Divergence {
   id: string;
-  side: 'a_only' | 'b_only';
-  transactionAId?: string;
-  transactionBId?: string;
+  transactionId: string;
+  sourceId: string;
   aiProbableCause?: string;
   aiSuggestedAction?: string;
   aiConfidence?: 'high' | 'medium' | 'low';
@@ -39,131 +50,118 @@ function trigramSimilarity(a: string, b: string): number {
   };
   const ta = trigrams(a);
   const tb = trigrams(b);
-  let intersection = 0;
-  for (const t of ta) if (tb.has(t)) intersection++;
-  return ta.size + tb.size === 0 ? 0 : (2 * intersection) / (ta.size + tb.size);
+  let n = 0;
+  for (const t of ta) if (tb.has(t)) n++;
+  return ta.size + tb.size === 0 ? 0 : (2 * n) / (ta.size + tb.size);
 }
 
-export function runMatching(
-  txsA: OFXTransaction[],
-  txsB: CSVTransaction[],
-): { matches: Match[]; divergences: Divergence[] } {
+function matchPair(
+  txsA: NormalizedTransaction[],
+  txsB: NormalizedTransaction[],
+  usedIds: Set<string>,
+  sourceAId: string,
+  sourceBId: string,
+): Match[] {
   const matches: Match[] = [];
-  const usedA = new Set<string>();
-  const usedB = new Set<string>();
 
   function tryMatch(
-    aId: string,
-    bId: string,
-    type: Match['matchType'],
-    confidence: number,
-    diffDays: number,
-    diffAmount: number,
+    aId: string, bId: string,
+    type: Match['matchType'], confidence: number,
+    diffDays: number, diffAmount: number,
   ) {
-    if (usedA.has(aId) || usedB.has(bId)) return;
-    usedA.add(aId);
-    usedB.add(bId);
-    matches.push({
-      id: crypto.randomUUID(),
-      transactionAId: aId,
-      transactionBId: bId,
-      matchType: type,
-      confidence,
-      dateDiffDays: diffDays,
-      amountDiff: diffAmount,
-      userConfirmed: false,
-    });
+    if (usedIds.has(aId) || usedIds.has(bId)) return false;
+    usedIds.add(aId);
+    usedIds.add(bId);
+    matches.push({ id: crypto.randomUUID(), transactionAId: aId, transactionBId: bId, sourceAId, sourceBId, matchType: type, confidence, dateDiffDays: diffDays, amountDiff: diffAmount, userConfirmed: false });
+    return true;
   }
 
-  // Layer 1: Exact — same date + same amount
-  for (const a of txsA) {
-    for (const b of txsB) {
-      if (usedA.has(a.id) || usedB.has(b.id)) continue;
+  const availA = () => txsA.filter((t) => !usedIds.has(t.id));
+  const availB = () => txsB.filter((t) => !usedIds.has(t.id));
+
+  // Layer 1: exact date + amount
+  for (const a of availA()) {
+    for (const b of availB()) {
       if (a.postedAt === b.postedAt && a.amount === b.amount) {
-        tryMatch(a.id, b.id, 'exact', 1.0, 0, 0);
-        break;
+        if (tryMatch(a.id, b.id, 'exact', 1.0, 0, 0)) break;
       }
     }
   }
 
-  // Layer 2a: same amount + date diff ≤ 3 days
-  for (const a of txsA) {
-    if (usedA.has(a.id)) continue;
-    for (const b of txsB) {
-      if (usedB.has(b.id)) continue;
+  // Layer 2a: same amount, date ≤ 3 days
+  for (const a of availA()) {
+    for (const b of availB()) {
       const dd = dateDiffDays(a.postedAt, b.postedAt);
       if (a.amount === b.amount && dd <= 3) {
-        tryMatch(a.id, b.id, 'fuzzy_date', 0.85, dd, 0);
-        break;
+        if (tryMatch(a.id, b.id, 'fuzzy_date', 0.85, dd, 0)) break;
       }
     }
   }
 
-  // Layer 2b: same date + amount diff ≤ 0.01
-  for (const a of txsA) {
-    if (usedA.has(a.id)) continue;
-    for (const b of txsB) {
-      if (usedB.has(b.id)) continue;
+  // Layer 2b: same date, amount diff ≤ 0.01
+  for (const a of availA()) {
+    for (const b of availB()) {
       const ad = Math.abs(a.amount - b.amount);
       if (a.postedAt === b.postedAt && ad <= 0.01) {
-        tryMatch(a.id, b.id, 'fuzzy_amount', 0.85, 0, ad);
-        break;
+        if (tryMatch(a.id, b.id, 'fuzzy_amount', 0.85, 0, ad)) break;
       }
     }
   }
 
-  // Layer 3: Description similarity ≥ 0.6 + amount diff ≤ 1.00 + date diff ≤ 7 days
-  for (const a of txsA) {
-    if (usedA.has(a.id)) continue;
-    let bestScore = 0;
-    let bestB: CSVTransaction | null = null;
-
-    for (const b of txsB) {
-      if (usedB.has(b.id)) continue;
+  // Layer 3: description similarity
+  for (const a of availA()) {
+    let best = 0;
+    let bestB: NormalizedTransaction | null = null;
+    for (const b of availB()) {
       const ad = Math.abs(a.amount - b.amount);
       const dd = dateDiffDays(a.postedAt, b.postedAt);
       if (ad > 1.0 || dd > 7) continue;
       const sim = trigramSimilarity(a.description, b.description);
-      if (sim >= 0.6 && sim > bestScore) {
-        bestScore = sim;
-        bestB = b;
-      }
+      if (sim >= 0.6 && sim > best) { best = sim; bestB = b; }
     }
-
     if (bestB) {
-      tryMatch(
-        a.id,
-        bestB.id,
-        'description',
-        bestScore,
+      tryMatch(a.id, bestB.id, 'description', best,
         dateDiffDays(a.postedAt, bestB.postedAt),
-        Math.abs(a.amount - bestB.amount),
+        Math.abs(a.amount - bestB.amount));
+    }
+  }
+
+  return matches;
+}
+
+export function runMatchingMultiSource(sources: TransactionSource[]): {
+  matches: Match[];
+  divergences: Divergence[];
+} {
+  const matches: Match[] = [];
+  const usedIds = new Set<string>();
+
+  // Match all pairs of sources
+  for (let i = 0; i < sources.length; i++) {
+    for (let j = i + 1; j < sources.length; j++) {
+      const pairMatches = matchPair(
+        sources[i].transactions,
+        sources[j].transactions,
+        usedIds,
+        sources[i].id,
+        sources[j].id,
       );
+      matches.push(...pairMatches);
     }
   }
 
-  // Divergences: unmatched transactions
+  // All unmatched transactions become divergences
   const divergences: Divergence[] = [];
-
-  for (const a of txsA) {
-    if (!usedA.has(a.id)) {
-      divergences.push({
-        id: crypto.randomUUID(),
-        side: 'a_only',
-        transactionAId: a.id,
-        resolution: 'pending',
-      });
-    }
-  }
-
-  for (const b of txsB) {
-    if (!usedB.has(b.id)) {
-      divergences.push({
-        id: crypto.randomUUID(),
-        side: 'b_only',
-        transactionBId: b.id,
-        resolution: 'pending',
-      });
+  for (const source of sources) {
+    for (const tx of source.transactions) {
+      if (!usedIds.has(tx.id)) {
+        divergences.push({
+          id: crypto.randomUUID(),
+          transactionId: tx.id,
+          sourceId: source.id,
+          resolution: 'pending',
+        });
+      }
     }
   }
 

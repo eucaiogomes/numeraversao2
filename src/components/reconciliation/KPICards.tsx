@@ -1,25 +1,24 @@
-import { CheckCircle2, AlertTriangle, TrendingUp, Sparkles } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Database, Sparkles } from 'lucide-react';
+import type { TransactionSource } from '@/lib/matching-engine';
 
 interface KPICardsProps {
+  sources: TransactionSource[];
   matchedCount: number;
-  totalA: number;
-  totalB: number;
   divergenceCount: number;
   pendingDivergences: number;
   aiAnalyzedCount: number;
 }
 
 export function KPICards({
+  sources,
   matchedCount,
-  totalA,
-  totalB,
   divergenceCount,
   pendingDivergences,
   aiAnalyzedCount,
 }: KPICardsProps) {
   const total = matchedCount + divergenceCount;
   const matchRate = total > 0 ? Math.round((matchedCount / total) * 100) : 0;
-  const diff = totalA - totalB;
+  const totalTxs = sources.reduce((s, src) => s + src.transactions.length, 0);
 
   const fmt = (n: number) =>
     n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -57,16 +56,19 @@ export function KPICards({
       <div className="bg-white rounded-xl border border-gray-200/70 p-4 shadow-sm">
         <div className="flex items-center gap-2 mb-3">
           <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-            <TrendingUp className="w-4 h-4 text-blue-500" />
+            <Database className="w-4 h-4 text-blue-500" />
           </div>
           <span className="text-[12px] font-medium text-gray-500 uppercase tracking-wide">
-            Diferença
+            Fontes
           </span>
         </div>
-        <p className={`text-2xl font-bold ${diff === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
-          {fmt(diff)}
+        <p className="text-2xl font-bold text-[#0a2520]">{sources.length}</p>
+        <p className="text-[12px] text-gray-400 mt-0.5">
+          {totalTxs} lançamentos · {sources.map(s => {
+            const total = s.transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+            return `${s.label}: ${fmt(total)}`;
+          }).join(' · ')}
         </p>
-        <p className="text-[12px] text-gray-400 mt-0.5">A: {fmt(totalA)} · B: {fmt(totalB)}</p>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200/70 p-4 shadow-sm">

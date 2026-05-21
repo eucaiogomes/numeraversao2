@@ -9,6 +9,7 @@ import {
   getReconciliation,
   updateReconciliation,
   updateDivergence,
+  getPeriod,
 } from '@/lib/reconciliation-store';
 import type { Reconciliation } from '@/lib/reconciliation-store';
 import { analyzeDivergencesBatch, buildDivergenceInputs } from '@/lib/claude-analysis';
@@ -32,7 +33,6 @@ function ReconciliationPage() {
     setRec({ ...getReconciliation(id)! });
   }, [id]);
 
-  // Auto-trigger AI analysis on mount if not done yet
   useEffect(() => {
     const r = getReconciliation(id);
     if (!r) return;
@@ -51,18 +51,18 @@ function ReconciliationPage() {
 
     const unanalyzed = r.divergences.filter((d) => !d.aiProbableCause);
     const BATCH = 20;
+    const period = getPeriod(r);
 
     try {
       for (let i = 0; i < unanalyzed.length; i += BATCH) {
         const batch = unanalyzed.slice(i, i + BATCH);
-        const inputs = buildDivergenceInputs(batch, r.transactionsA, r.transactionsB);
+        const inputs = buildDivergenceInputs(batch, r.sources);
 
-        const period = `${r.periodStart} a ${r.periodEnd}`;
         const results = await analyzeDivergencesBatch({
           data: {
             divergences: inputs,
-            period,
-            accountLabel: r.accountLabel,
+            period: `${period.start} a ${period.end}`,
+            sourceLabels: r.sources.map((s) => s.label),
           },
         });
 
@@ -95,6 +95,9 @@ function ReconciliationPage() {
     );
   }
 
+  const period = getPeriod(rec);
+  const label = rec.sources.map((s) => s.label).join(' × ') || rec.prompt || 'Conciliação';
+  const fileNames = rec.sources.map((s) => s.fileName).join(', ');
   const pendingDivergences = rec.divergences.filter((d) => d.resolution === 'pending').length;
   const aiAnalyzedCount = rec.divergences.filter((d) => !!d.aiProbableCause).length;
 
@@ -111,16 +114,14 @@ function ReconciliationPage() {
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div>
-              <h1 className="text-xl font-semibold text-[#0a2520] tracking-tight">
-                {rec.accountLabel}
-              </h1>
+              <h1 className="text-xl font-semibold text-[#0a2520] tracking-tight">{label}</h1>
               <p className="text-[12.5px] text-gray-400 mt-0.5">
-                {rec.periodStart} a {rec.periodEnd} · {rec.fileAName} × {rec.fileBName}
+                {period.start} a {period.end} · {fileNames}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             {analyzing && (
               <div className="flex items-center gap-1.5 text-[12px] text-[#0d9488] bg-teal-50 border border-teal-200 px-3 py-1.5 rounded-full">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -156,12 +157,29 @@ function ReconciliationPage() {
           </div>
         </div>
 
+        {/* Source color legend */}
+        {rec.sources.length > 0 && (
+          <div className="flex items-center gap-3 mb-5 flex-wrap">
+            {rec.sources.map((s) => (
+              <div key={s.id} className="flex items-center gap-1.5">
+                <span
+                  className="w-3 h-3 rounded-full shrink-0"
+                  style={{ backgroundColor: s.color }}
+                />
+                <span className="text-[12px] text-gray-600 font-medium">{s.label}</span>
+                <span className="text-[11px] text-gray-400">
+                  ({s.transactions.length} lançamentos)
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* KPI Cards */}
         <KPICards
-          matchedCount={rec.matchedCount}
-          totalA={rec.totalA}
-          totalB={rec.totalB}
-          divergenceCount={rec.divergenceCount}
+          sources={rec.sources}
+          matchedCount={rec.matches.length}
+          divergenceCount={rec.divergences.length}
           pendingDivergences={pendingDivergences}
           aiAnalyzedCount={aiAnalyzedCount}
         />
@@ -171,8 +189,8 @@ function ReconciliationPage() {
           <div className="flex border-b border-gray-100">
             {(
               [
-                { id: 'divergences', label: 'Divergências', badge: rec.divergenceCount },
-                { id: 'matches', label: 'Correspondências', badge: rec.matchedCount },
+                { id: 'divergences', label: 'Divergências', badge: rec.divergences.length },
+                { id: 'matches', label: 'Correspondências', badge: rec.matches.length },
               ] as const
             ).map((t) => (
               <button
@@ -202,16 +220,14 @@ function ReconciliationPage() {
               <DivergencesTable
                 reconciliationId={id}
                 divergences={rec.divergences}
-                txsA={rec.transactionsA}
-                txsB={rec.transactionsB}
+                sources={rec.sources}
                 onUpdate={refresh}
               />
             )}
             {tab === 'matches' && (
               <MatchesTable
                 matches={rec.matches}
-                txsA={rec.transactionsA}
-                txsB={rec.transactionsB}
+                sources={rec.sources}
               />
             )}
           </div>

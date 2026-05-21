@@ -1,15 +1,12 @@
 import { useState } from 'react';
 import { Sparkles, CheckCircle2, EyeOff, Search, AlertCircle, ChevronDown } from 'lucide-react';
-import type { Divergence } from '@/lib/matching-engine';
-import type { OFXTransaction } from '@/lib/ofx-parser';
-import type { CSVTransaction } from '@/lib/csv-parser';
+import type { Divergence, TransactionSource } from '@/lib/matching-engine';
 import { updateDivergence } from '@/lib/reconciliation-store';
 
 interface DivergencesTableProps {
   reconciliationId: string;
   divergences: Divergence[];
-  txsA: OFXTransaction[];
-  txsB: CSVTransaction[];
+  sources: TransactionSource[];
   onUpdate: () => void;
 }
 
@@ -42,22 +39,23 @@ function fmt(n: number) {
 export function DivergencesTable({
   reconciliationId,
   divergences,
-  txsA,
-  txsB,
+  sources,
   onUpdate,
 }: DivergencesTableProps) {
-  const [filter, setFilter] = useState<'all' | 'a_only' | 'b_only'>('all');
+  const [filterSource, setFilterSource] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const mapA = new Map(txsA.map((t) => [t.id, t]));
-  const mapB = new Map(txsB.map((t) => [t.id, t]));
+  const txMap = new Map(
+    sources.flatMap((s) => s.transactions.map((t) => [t.id, { tx: t, source: s }])),
+  );
+  const sourceMap = new Map(sources.map((s) => [s.id, s]));
 
   const filtered = divergences.filter((d) => {
-    if (filter !== 'all' && d.side !== filter) return false;
+    if (filterSource !== 'all' && d.sourceId !== filterSource) return false;
     if (search) {
-      const tx = d.transactionAId ? mapA.get(d.transactionAId) : mapB.get(d.transactionBId!);
-      if (!tx?.description.toLowerCase().includes(search.toLowerCase())) return false;
+      const entry = txMap.get(d.transactionId);
+      if (!entry?.tx.description.toLowerCase().includes(search.toLowerCase())) return false;
     }
     return true;
   });
@@ -81,18 +79,28 @@ export function DivergencesTable({
     <div>
       {/* Filters */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-          {(['all', 'a_only', 'b_only'] as const).map((f) => (
+        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 flex-wrap">
+          <button
+            onClick={() => setFilterSource('all')}
+            className={`px-3 py-1 rounded-md text-[12px] font-medium transition-all ${
+              filterSource === 'all'
+                ? 'bg-white text-[#0a2520] shadow-sm'
+                : 'text-gray-500 hover:text-[#0a2520]'
+            }`}
+          >
+            Todos
+          </button>
+          {sources.map((s) => (
             <button
-              key={f}
-              onClick={() => setFilter(f)}
+              key={s.id}
+              onClick={() => setFilterSource(s.id)}
               className={`px-3 py-1 rounded-md text-[12px] font-medium transition-all ${
-                filter === f
+                filterSource === s.id
                   ? 'bg-white text-[#0a2520] shadow-sm'
                   : 'text-gray-500 hover:text-[#0a2520]'
               }`}
             >
-              {f === 'all' ? 'Todos' : f === 'a_only' ? 'Só extrato (A)' : 'Só razão (B)'}
+              {s.label}
             </button>
           ))}
         </div>
@@ -121,7 +129,7 @@ export function DivergencesTable({
               </th>
               <th className="text-left py-3 px-4 font-medium text-gray-500">Descrição</th>
               <th className="text-center py-3 px-4 font-medium text-gray-500 whitespace-nowrap">
-                Lado
+                Fonte
               </th>
               <th className="text-left py-3 px-4 font-medium text-gray-500">
                 <div className="flex items-center gap-1">
@@ -135,9 +143,8 @@ export function DivergencesTable({
           </thead>
           <tbody className="divide-y divide-gray-50">
             {filtered.map((d) => {
-              const tx = d.transactionAId
-                ? mapA.get(d.transactionAId)
-                : mapB.get(d.transactionBId!);
+              const entry = txMap.get(d.transactionId);
+              const source = sourceMap.get(d.sourceId);
               const expanded = expandedId === d.id;
 
               return (
@@ -149,24 +156,23 @@ export function DivergencesTable({
                     }`}
                   >
                     <td className="py-2.5 px-4 text-gray-600 whitespace-nowrap">
-                      {tx?.postedAt ?? '—'}
+                      {entry?.tx.postedAt ?? '—'}
                     </td>
                     <td className="py-2.5 px-4 text-right font-mono text-gray-700 whitespace-nowrap">
-                      {tx ? fmt(tx.amount) : '—'}
+                      {entry ? fmt(entry.tx.amount) : '—'}
                     </td>
                     <td className="py-2.5 px-4 text-gray-600 max-w-[200px]">
-                      <span className="truncate block">{tx?.description ?? '—'}</span>
+                      <span className="truncate block">{entry?.tx.description ?? '—'}</span>
                     </td>
                     <td className="py-2.5 px-4 text-center">
-                      <span
-                        className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                          d.side === 'a_only'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-purple-100 text-purple-700'
-                        }`}
-                      >
-                        {d.side === 'a_only' ? 'Extrato' : 'Razão'}
-                      </span>
+                      {source && (
+                        <span
+                          className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold text-white"
+                          style={{ backgroundColor: source.color }}
+                        >
+                          {source.label}
+                        </span>
+                      )}
                     </td>
                     <td className="py-2.5 px-4">
                       {d.aiProbableCause ? (
@@ -230,7 +236,7 @@ export function DivergencesTable({
                   {expanded && d.aiSuggestedAction && (
                     <tr key={`${d.id}-expanded`} className="bg-teal-50/40">
                       <td colSpan={7} className="px-4 pb-3 pt-0">
-                        <div className="flex items-start gap-2 ml-[calc(100px+1rem)]">
+                        <div className="flex items-start gap-2 ml-16">
                           <Sparkles className="w-3.5 h-3.5 text-[#0d9488] mt-0.5 shrink-0" />
                           <p className="text-[12.5px] text-[#0a4540]">
                             <span className="font-medium">Ação sugerida:</span>{' '}

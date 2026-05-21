@@ -1,28 +1,16 @@
-import type { OFXTransaction } from './ofx-parser';
-import type { CSVTransaction } from './csv-parser';
-import type { Match, Divergence } from './matching-engine';
+import type { TransactionSource, Match, Divergence } from './matching-engine';
 
 export interface Reconciliation {
   id: string;
   prompt: string;
-  periodStart: string;
-  periodEnd: string;
-  accountLabel: string;
   status: 'reviewing' | 'closed';
-  fileAName: string;
-  fileBName: string;
-  totalA: number;
-  totalB: number;
-  matchedCount: number;
-  divergenceCount: number;
-  transactionsA: OFXTransaction[];
-  transactionsB: CSVTransaction[];
+  sources: TransactionSource[];
   matches: Match[];
   divergences: Divergence[];
   createdAt: string;
+  closedAt?: string;
 }
 
-// Module-level store — persists for the lifetime of the browser session
 const store = new Map<string, Reconciliation>();
 
 export function saveReconciliation(r: Reconciliation): void {
@@ -50,6 +38,24 @@ export function updateDivergence(
 ): void {
   const r = store.get(reconciliationId);
   if (!r) return;
-  const divergences = r.divergences.map((d) => (d.id === divergenceId ? { ...d, ...updates } : d));
-  store.set(reconciliationId, { ...r, divergences });
+  store.set(reconciliationId, {
+    ...r,
+    divergences: r.divergences.map((d) => (d.id === divergenceId ? { ...d, ...updates } : d)),
+  });
+}
+
+// Helpers
+export function getTotalTransactions(r: Reconciliation): number {
+  return r.sources.reduce((s, src) => s + src.transactions.length, 0);
+}
+
+export function getMatchRate(r: Reconciliation): number {
+  const total = getTotalTransactions(r);
+  if (total === 0) return 0;
+  return Math.round((r.matches.length * 2 / total) * 100);
+}
+
+export function getPeriod(r: Reconciliation): { start: string; end: string } {
+  const dates = r.sources.flatMap((s) => s.transactions.map((t) => t.postedAt)).sort();
+  return { start: dates[0] ?? '', end: dates[dates.length - 1] ?? '' };
 }

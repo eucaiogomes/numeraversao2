@@ -2,7 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { Calculator, Plus, ChevronRight, CheckCircle2, Clock } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
-import { listReconciliations } from '@/lib/reconciliation-store';
+import { listReconciliations, getPeriod, getMatchRate } from '@/lib/reconciliation-store';
 import type { Reconciliation } from '@/lib/reconciliation-store';
 
 export const Route = createFileRoute('/conciliacao/')({
@@ -28,8 +28,6 @@ function StatusBadge({ status }: { status: Reconciliation['status'] }) {
 
 function ConciliacaoIndex() {
   const [recs] = useState<Reconciliation[]>(() => listReconciliations());
-
-  const fmt = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   return (
     <AppLayout>
@@ -59,7 +57,7 @@ function ConciliacaoIndex() {
               Nenhuma conciliação ainda
             </h2>
             <p className="text-[13px] text-gray-400 mb-6 max-w-xs mx-auto">
-              Faça upload de um extrato OFX e um razão CSV na tela inicial para começar.
+              Faça upload de dois ou mais arquivos na tela inicial para começar.
             </p>
             <Link
               to="/"
@@ -72,10 +70,10 @@ function ConciliacaoIndex() {
         ) : (
           <div className="bg-white rounded-2xl border border-gray-200/70 shadow-sm overflow-hidden divide-y divide-gray-50">
             {recs.map((r) => {
-              const matchRate =
-                r.matchedCount + r.divergenceCount > 0
-                  ? Math.round((r.matchedCount / (r.matchedCount + r.divergenceCount)) * 100)
-                  : 0;
+              const matchRate = getMatchRate(r);
+              const period = getPeriod(r);
+              const label = r.sources.map((s) => s.label).join(' × ') || r.prompt || 'Conciliação';
+              const fileNames = r.sources.map((s) => s.fileName).join(', ');
 
               return (
                 <Link
@@ -90,18 +88,18 @@ function ConciliacaoIndex() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className="font-medium text-[14px] text-[#0a2520] truncate">
-                        {r.accountLabel}
+                        {label}
                       </span>
                       <StatusBadge status={r.status} />
                     </div>
-                    <p className="text-[12px] text-gray-400">
-                      {r.periodStart} a {r.periodEnd} · {r.fileAName} × {r.fileBName}
+                    <p className="text-[12px] text-gray-400 truncate">
+                      {period.start} a {period.end} · {fileNames}
                     </p>
                   </div>
                   <div className="text-right shrink-0 hidden sm:block">
                     <p className="text-[13px] font-semibold text-[#0a2520]">{matchRate}% conciliado</p>
                     <p className="text-[11px] text-gray-400">
-                      {r.divergenceCount} divergências · {fmt(r.totalA - r.totalB)} dif.
+                      {r.divergences.length} divergências · {r.sources.length} fontes
                     </p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-[#0d9488] transition-colors shrink-0" />

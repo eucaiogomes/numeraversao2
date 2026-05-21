@@ -1,11 +1,9 @@
 import { createServerFn } from '@tanstack/react-start';
-import type { Divergence } from './matching-engine';
-import type { OFXTransaction } from './ofx-parser';
-import type { CSVTransaction } from './csv-parser';
+import type { Divergence, TransactionSource } from './matching-engine';
 
 interface DivergenceInput {
   id: string;
-  side: string;
+  source: string;
   date: string;
   amount: number;
   description: string;
@@ -18,7 +16,7 @@ export interface AnalysisResult {
   confidence: 'high' | 'medium' | 'low';
 }
 
-function buildPrompt(divergencesJson: string, period: string, accountLabel: string): string {
+function buildPrompt(divergencesJson: string, period: string, sources: string[]): string {
   return `Você é um assistente contábil especializado em conciliação bancária.
 Para cada divergência abaixo, identifique:
 1. CAUSA PROVÁVEL (1 frase curta)
@@ -37,13 +35,12 @@ Categorias comuns:
 
 Contexto:
 - Período: ${period}
-- Conta: ${accountLabel}
-- Lado A = extrato bancário, Lado B = razão contábil
+- Fontes de dados: ${sources.join(', ')}
 
-Divergências:
+Divergências (lançamentos sem correspondência em nenhuma outra fonte):
 ${divergencesJson}
 
-Responda SOMENTE em JSON válido (sem markdown, sem explicações fora do JSON):
+Responda SOMENTE em JSON válido (sem markdown):
 [
   {
     "divergence_id": "...",
@@ -54,104 +51,93 @@ Responda SOMENTE em JSON válido (sem markdown, sem explicações fora do JSON):
 ]`;
 }
 
-async function callGroq(prompt: string, apiKey: string): Promise<AnalysisResult[]> {
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      max_tokens: 4000,
-      temperature: 0.1,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
-
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Groq API error: ${err}`);
+function parseJsonResult(text: string): AnalysisResult[] {
+  const match = text.match(/\[[\s\S]*\]/);
+  if (!match) return [];
+  try {
+    return JSON.parse(match[0]) as AnalysisResult[];
+  } catch {
+    return [];
   }
+}
 
-  const result = await response.json();
-  const text: string = result.choices?.[0]?.message?.content ?? '[]';
-  const jsonMatch = text.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) return [];
-  return JSON.parse(jsonMatch[0]) as AnalysisResult[];
+async function callGroq(prompt: string, apiKey: string): Promise<AnalysisResult[]> {
+  const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 4000, temperature: 0.1, messages: [{ role: 'user', content: prompt }] }),
+  });
+  if (!r.ok) throw new Error(`Groq: ${await r.text()}`);
+  const j = await r.json();
+  return parseJsonResult(j.choices?.[0]?.message?.content ?? '');
+}
+
+async function callOpenAI(prompt: string, apiKey: string): Promise<AnalysisResult[]> {
+  const r = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 4000, temperature: 0.1, messages: [{ role: 'user', content: prompt }] }),
+  });
+  if (!r.ok) throw new Error(`OpenAI: ${await r.text()}`);
+  const j = await r.json();
+  return parseJsonResult(j.choices?.[0]?.message?.content ?? '');
 }
 
 async function callAnthropic(prompt: string, apiKey: string): Promise<AnalysisResult[]> {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 4000,
-      messages: [{ role: 'user', content: prompt }],
-    }),
+    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 4000, messages: [{ role: 'user', content: prompt }] }),
   });
-
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Anthropic API error: ${err}`);
-  }
-
-  const result = await response.json();
-  const text: string = result.content?.[0]?.text ?? '[]';
-  const jsonMatch = text.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) return [];
-  return JSON.parse(jsonMatch[0]) as AnalysisResult[];
+  if (!r.ok) throw new Error(`Anthropic: ${await r.text()}`);
+  const j = await r.json();
+  return parseJsonResult(j.content?.[0]?.text ?? '');
 }
 
 export const analyzeDivergencesBatch = createServerFn({ method: 'POST' })
-  .validator(
-    (data: unknown) =>
-      data as {
-        divergences: DivergenceInput[];
-        period: string;
-        accountLabel: string;
-      },
-  )
+  .validator((data: unknown) => data as { divergences: DivergenceInput[]; period: string; sourceLabels: string[] })
   .handler(async ({ data }) => {
-    const { divergences, period, accountLabel } = data;
-
+    const { divergences, period, sourceLabels } = data;
     const groqKey = process.env.GROQ_API_KEY;
+    const openaiKey = process.env.OPENAI_API_KEY;
     const anthropicKey = process.env.ANTHROPIC_API_KEY;
 
-    if (!groqKey && !anthropicKey) {
-      throw new Error('Nenhuma chave de IA configurada (GROQ_API_KEY ou ANTHROPIC_API_KEY)');
+    if (!groqKey && !openaiKey && !anthropicKey) {
+      throw new Error('Nenhuma chave de IA configurada');
     }
 
-    const prompt = buildPrompt(JSON.stringify(divergences, null, 2), period, accountLabel);
+    const prompt = buildPrompt(JSON.stringify(divergences, null, 2), period, sourceLabels);
 
-    // Prefer Groq when available (faster + free tier), fallback to Anthropic
     if (groqKey) {
-      return await callGroq(prompt, groqKey);
+      try { return await callGroq(prompt, groqKey); } catch (e) {
+        console.warn('Groq falhou:', e instanceof Error ? e.message : e);
+        if (!openaiKey && !anthropicKey) throw e;
+      }
+    }
+    if (openaiKey) {
+      try { return await callOpenAI(prompt, openaiKey); } catch (e) {
+        console.warn('OpenAI falhou:', e instanceof Error ? e.message : e);
+        if (!anthropicKey) throw e;
+      }
     }
     return await callAnthropic(prompt, anthropicKey!);
   });
 
 export function buildDivergenceInputs(
   divergences: Divergence[],
-  txsA: OFXTransaction[],
-  txsB: CSVTransaction[],
+  sources: TransactionSource[],
 ): DivergenceInput[] {
-  const mapA = new Map(txsA.map((t) => [t.id, t]));
-  const mapB = new Map(txsB.map((t) => [t.id, t]));
-
+  const txMap = new Map(
+    sources.flatMap((s) => s.transactions.map((t) => [t.id, { tx: t, label: s.label }])),
+  );
   return divergences.map((d) => {
-    const tx = d.transactionAId ? mapA.get(d.transactionAId) : mapB.get(d.transactionBId!);
+    const entry = txMap.get(d.transactionId);
     return {
       id: d.id,
-      side: d.side === 'a_only' ? 'extrato bancário (A)' : 'razão contábil (B)',
-      date: tx?.postedAt ?? '',
-      amount: tx?.amount ?? 0,
-      description: tx?.description ?? '',
+      source: entry?.label ?? d.sourceId,
+      date: entry?.tx.postedAt ?? '',
+      amount: entry?.tx.amount ?? 0,
+      description: entry?.tx.description ?? '',
     };
   });
 }

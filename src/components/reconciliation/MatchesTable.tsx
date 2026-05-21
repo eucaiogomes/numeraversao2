@@ -1,12 +1,9 @@
 import { Check, AlertCircle } from 'lucide-react';
-import type { Match } from '@/lib/matching-engine';
-import type { OFXTransaction } from '@/lib/ofx-parser';
-import type { CSVTransaction } from '@/lib/csv-parser';
+import type { Match, TransactionSource } from '@/lib/matching-engine';
 
 interface MatchesTableProps {
   matches: Match[];
-  txsA: OFXTransaction[];
-  txsB: CSVTransaction[];
+  sources: TransactionSource[];
 }
 
 const MATCH_TYPE_LABEL: Record<Match['matchType'], string> = {
@@ -27,9 +24,11 @@ function fmt(n: number) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export function MatchesTable({ matches, txsA, txsB }: MatchesTableProps) {
-  const mapA = new Map(txsA.map((t) => [t.id, t]));
-  const mapB = new Map(txsB.map((t) => [t.id, t]));
+export function MatchesTable({ matches, sources }: MatchesTableProps) {
+  const txMap = new Map(
+    sources.flatMap((s) => s.transactions.map((t) => [t.id, { tx: t, source: s }])),
+  );
+  const sourceMap = new Map(sources.map((s) => [s.id, s]));
 
   if (matches.length === 0) {
     return (
@@ -45,35 +44,59 @@ export function MatchesTable({ matches, txsA, txsB }: MatchesTableProps) {
       <table className="w-full text-[13px]">
         <thead>
           <tr className="border-b border-gray-100">
-            <th className="text-left py-3 px-4 font-medium text-gray-500 whitespace-nowrap">Data A</th>
+            <th className="text-left py-3 px-4 font-medium text-gray-500 whitespace-nowrap">Fonte A</th>
+            <th className="text-left py-3 px-4 font-medium text-gray-500 whitespace-nowrap">Data</th>
             <th className="text-right py-3 px-4 font-medium text-gray-500 whitespace-nowrap">Valor A</th>
-            <th className="text-left py-3 px-4 font-medium text-gray-500">Descrição A (extrato)</th>
-            <th className="text-left py-3 px-4 font-medium text-gray-500">Descrição B (razão)</th>
+            <th className="text-left py-3 px-4 font-medium text-gray-500">Descrição A</th>
+            <th className="text-left py-3 px-4 font-medium text-gray-500">Descrição B</th>
             <th className="text-right py-3 px-4 font-medium text-gray-500 whitespace-nowrap">Valor B</th>
+            <th className="text-left py-3 px-4 font-medium text-gray-500 whitespace-nowrap">Fonte B</th>
             <th className="text-center py-3 px-4 font-medium text-gray-500 whitespace-nowrap">Tipo</th>
             <th className="text-center py-3 px-4 font-medium text-gray-500 whitespace-nowrap">Conf.</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
           {matches.map((m) => {
-            const a = mapA.get(m.transactionAId);
-            const b = mapB.get(m.transactionBId);
+            const entryA = txMap.get(m.transactionAId);
+            const entryB = txMap.get(m.transactionBId);
+            const srcA = sourceMap.get(m.sourceAId);
+            const srcB = sourceMap.get(m.sourceBId);
             return (
               <tr key={m.id} className="hover:bg-gray-50/60 transition-colors">
+                <td className="py-2.5 px-4 whitespace-nowrap">
+                  {srcA && (
+                    <span
+                      className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold text-white"
+                      style={{ backgroundColor: srcA.color }}
+                    >
+                      {srcA.label}
+                    </span>
+                  )}
+                </td>
                 <td className="py-2.5 px-4 text-gray-600 whitespace-nowrap">
-                  {a?.postedAt ?? '—'}
+                  {entryA?.tx.postedAt ?? '—'}
                 </td>
                 <td className="py-2.5 px-4 text-right font-mono text-gray-700 whitespace-nowrap">
-                  {a ? fmt(a.amount) : '—'}
+                  {entryA ? fmt(entryA.tx.amount) : '—'}
                 </td>
-                <td className="py-2.5 px-4 text-gray-600 max-w-[200px] truncate">
-                  {a?.description ?? '—'}
+                <td className="py-2.5 px-4 text-gray-600 max-w-[180px] truncate">
+                  {entryA?.tx.description ?? '—'}
                 </td>
-                <td className="py-2.5 px-4 text-gray-600 max-w-[200px] truncate">
-                  {b?.description ?? '—'}
+                <td className="py-2.5 px-4 text-gray-600 max-w-[180px] truncate">
+                  {entryB?.tx.description ?? '—'}
                 </td>
                 <td className="py-2.5 px-4 text-right font-mono text-gray-700 whitespace-nowrap">
-                  {b ? fmt(b.amount) : '—'}
+                  {entryB ? fmt(entryB.tx.amount) : '—'}
+                </td>
+                <td className="py-2.5 px-4 whitespace-nowrap">
+                  {srcB && (
+                    <span
+                      className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold text-white"
+                      style={{ backgroundColor: srcB.color }}
+                    >
+                      {srcB.label}
+                    </span>
+                  )}
                 </td>
                 <td className="py-2.5 px-4 text-center">
                   <span
