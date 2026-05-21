@@ -4,14 +4,14 @@ import {
   Languages,
   ChevronDown,
   ChevronRight,
-  Video,
   Folder,
   FolderOpen,
   Circle,
   PanelLeft,
   Clock,
   Plus,
-  Scale,
+  Sparkles,
+  Calculator,
   LogOut,
   Settings,
   Check,
@@ -29,7 +29,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import logoJuris8 from "@/assets/logo-juris8.png";
+import { NumeraMark } from "@/components/NumeraMark";
 
 type SubItem = { label: string; to: string; badge?: number; indent?: number };
 
@@ -66,11 +66,11 @@ function SidebarGroup({
       title={collapsed ? label : undefined}
       className={`mx-2 flex items-center gap-2.5 px-2.5 py-2 rounded-md ${hasToggle && !collapsed ? "cursor-pointer" : ""} transition-all ${
         isActive
-          ? "bg-[#f5efff] text-[#1a0a2e]"
-          : "text-[#5a5a6b] hover:bg-gray-50 hover:text-[#1a0a2e]"
+          ? "bg-[#e6f7f2] text-[#0a2520]"
+          : "text-[#5a6b66] hover:bg-gray-50 hover:text-[#0a2520]"
       }`}
     >
-      <span className={`shrink-0 ${isActive ? "text-[#8c3cf0]" : "text-[#9a9aa8]"}`}>{icon}</span>
+      <span className={`shrink-0 ${isActive ? "text-[#0d9488]" : "text-[#9aa8a4]"}`}>{icon}</span>
       {!collapsed && (
         <>
           <span className={`text-[13px] flex-1 whitespace-nowrap tracking-tight ${isActive ? "font-medium" : "font-normal"}`}>{label}</span>
@@ -95,11 +95,11 @@ function SidebarGroup({
               to={rootTo}
               className={`flex items-center gap-2 pl-9 pr-2.5 py-1.5 rounded-md text-[12.5px] transition-colors ${
               location.pathname === rootTo
-                  ? "bg-[#f5efff] text-[#1a0a2e] font-medium"
-                  : "text-[#6b6b78] hover:bg-gray-50"
+                  ? "bg-[#e6f7f2] text-[#0a2520] font-medium"
+                  : "text-[#6b7874] hover:bg-gray-50"
               }`}
             >
-              <FolderOpen className="w-3.5 h-3.5 text-[#8c3cf0]" />
+              <FolderOpen className="w-3.5 h-3.5 text-[#0d9488]" />
               <span className="flex-1">/</span>
               {rootBadge !== undefined && <Badge n={rootBadge} />}
             </Link>
@@ -114,12 +114,12 @@ function SidebarGroup({
                 style={{ paddingLeft: pl }}
                 className={`flex items-center gap-2 pr-2.5 py-1.5 rounded-md text-[12.5px] transition-colors ${
                   active
-                    ? "bg-[#f5efff] text-[#1a0a2e] font-medium"
-                    : "text-[#6b6b78] hover:bg-gray-50"
+                    ? "bg-[#e6f7f2] text-[#0a2520] font-medium"
+                    : "text-[#6b7874] hover:bg-gray-50"
                 }`}
               >
                 {s.badge !== undefined && (
-                  <Circle className="w-1.5 h-1.5 fill-current text-[#8c3cf0]" />
+                  <Circle className="w-1.5 h-1.5 fill-current text-[#0d9488]" />
                 )}
                 <span className="flex-1">{s.label}</span>
                 {s.badge !== undefined && <Badge n={s.badge} />}
@@ -134,7 +134,7 @@ function SidebarGroup({
 
 function Badge({ n }: { n: number }) {
   return (
-    <span className="bg-[#8c3cf0] text-white text-[10px] font-bold rounded-full px-2 py-0.5 min-w-[22px] text-center">
+    <span className="bg-[#0d9488] text-white text-[10px] font-bold rounded-full px-2 py-0.5 min-w-[22px] text-center">
       {n}
     </span>
   );
@@ -145,49 +145,46 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-[#ececec] flex flex-col">
-      <header className="bg-[#1a0a2e] text-white flex items-center justify-between px-4 h-16 relative z-20 shadow-md">
+      <header className="bg-gradient-to-r from-[#0a2520] via-[#0d3530] to-[#0a2520] text-white flex items-center justify-between px-4 h-16 relative z-20 shadow-md">
         <div className="flex items-center gap-6">
-          <Link to="/" className="flex items-center">
-            <img
-              src={logoJuris8}
-              alt="Juris8"
-              className="h-14 w-auto object-contain"
-            />
+          <Link to="/" className="flex items-center gap-2.5">
+            <NumeraMark className="w-8 h-8 text-[#5fd9be]" />
+            <span className="text-[22px] font-semibold tracking-tight text-white lowercase">numera</span>
           </Link>
         </div>
 
         <div className="flex items-center gap-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-3 pl-2 pr-2 py-1 rounded-full hover:bg-white/10 transition-colors outline-none focus:ring-2 focus:ring-[#8c3cf0]/40">
+              <button className="flex items-center gap-3 pl-2 pr-2 py-1 rounded-full hover:bg-white/10 transition-colors outline-none focus:ring-2 focus:ring-[#5fd9be]/40">
                 <div className="text-right leading-tight">
                   <div className="text-sm font-semibold">Caio</div>
-                  <div className="text-[10px] uppercase tracking-wide text-white/60">Advogado</div>
+                  <div className="text-[10px] uppercase tracking-wide text-white/60">Contador</div>
                 </div>
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-slate-400 to-slate-600 border-2 border-white/20 shadow-sm shadow-black/30" />
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#5fd9be] to-[#0d9488] border-2 border-white/20 shadow-sm shadow-black/30 flex items-center justify-center text-[#0a2520] text-sm font-semibold">C</div>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" sideOffset={8} className="w-60">
               <DropdownMenuLabel className="flex flex-col gap-0.5 py-2">
-                <span className="text-sm font-semibold text-[#1a0a2e]">Caio</span>
-                <span className="text-[11px] font-normal text-[#6b6b78]">Advogado</span>
+                <span className="text-sm font-semibold text-[#0a2520]">Caio</span>
+                <span className="text-[11px] font-normal text-[#6b7874]">Contador</span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="gap-2.5 cursor-pointer">
-                <Download className="w-4 h-4 text-[#8c3cf0]" />
+                <Download className="w-4 h-4 text-[#0d9488]" />
                 Instalar app
               </DropdownMenuItem>
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger className="gap-2.5">
-                  <Languages className="w-4 h-4 text-[#8c3cf0]" />
+                  <Languages className="w-4 h-4 text-[#0d9488]" />
                   <span className="flex-1">Idioma</span>
-                  <span className="text-[11px] text-[#6b6b78]">Português</span>
+                  <span className="text-[11px] text-[#6b7874]">Português</span>
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent className="w-44">
                   {["Português", "English", "Español"].map((lang) => (
                     <DropdownMenuItem key={lang} className="gap-2 cursor-pointer">
                       <Check
-                        className={`w-3.5 h-3.5 ${lang === "Português" ? "text-[#8c3cf0]" : "opacity-0"}`}
+                        className={`w-3.5 h-3.5 ${lang === "Português" ? "text-[#0d9488]" : "opacity-0"}`}
                       />
                       {lang}
                     </DropdownMenuItem>
@@ -195,11 +192,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
               <DropdownMenuItem className="gap-2.5 cursor-pointer">
-                <Accessibility className="w-4 h-4 text-[#8c3cf0]" />
+                <Accessibility className="w-4 h-4 text-[#0d9488]" />
                 Acessibilidade
               </DropdownMenuItem>
               <DropdownMenuItem className="gap-2.5 cursor-pointer">
-                <Settings className="w-4 h-4 text-[#8c3cf0]" />
+                <Settings className="w-4 h-4 text-[#0d9488]" />
                 Configurações
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -216,33 +213,33 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <div className="flex flex-1">
         <aside
           style={{ width: collapsed ? 64 : 232 }}
-          className="bg-[#fafafb] border-r border-gray-200/70 shadow-[1px_0_0_rgba(26,10,46,0.02),4px_0_24px_-12px_rgba(26,10,46,0.08)] flex flex-col justify-between z-10 overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(.2,.7,.2,1)]"
+          className="bg-[#fafafb] border-r border-gray-200/70 shadow-[1px_0_0_rgba(10,37,32,0.02),4px_0_24px_-12px_rgba(10,37,32,0.08)] flex flex-col justify-between z-10 overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(.2,.7,.2,1)]"
         >
           <nav className="py-3">
             <div className={`${collapsed ? "px-2" : "px-3"} pb-2`}>
               <Link
                 to="/"
                 title={collapsed ? "Novo" : undefined}
-                className={`group flex items-center gap-2 ${collapsed ? "justify-center px-0" : "px-2.5"} py-2 rounded-md bg-white border border-gray-200/80 hover:border-[#8c3cf0]/40 shadow-sm hover:shadow-[0_4px_14px_-4px_rgba(140,60,240,0.25)] transition-all`}
+                className={`group flex items-center gap-2 ${collapsed ? "justify-center px-0" : "px-2.5"} py-2 rounded-md bg-white border border-gray-200/80 hover:border-[#0d9488]/40 shadow-sm hover:shadow-[0_4px_14px_-4px_rgba(13,148,136,0.25)] transition-all`}
               >
-                <span className="w-5 h-5 rounded-md bg-gradient-to-br from-[#8c3cf0] to-[#6b1fd0] flex items-center justify-center shrink-0">
+                <span className="w-5 h-5 rounded-md bg-gradient-to-br from-[#0d9488] to-[#0a2520] flex items-center justify-center shrink-0">
                   <Plus className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
                 </span>
                 {!collapsed && (
-                  <span className="text-[13px] font-medium text-[#1a0a2e] tracking-tight">Novo</span>
+                  <span className="text-[13px] font-medium text-[#0a2520] tracking-tight">Novo</span>
                 )}
               </Link>
             </div>
 
             <SidebarGroup
-              icon={<Scale className="w-[18px] h-[18px]" />}
-              label="Agente Jurídico"
+              icon={<Sparkles className="w-[18px] h-[18px]" />}
+              label="IA Contábil"
               to="/"
               collapsed={collapsed}
             />
             <SidebarGroup
-              icon={<Video className="w-[18px] h-[18px]" />}
-              label="Webconferência"
+              icon={<Calculator className="w-[18px] h-[18px]" />}
+              label="Conciliações"
               collapsed={collapsed}
               subItems={[
                 { label: "Agendamentos", to: "/webconferencia/agendamentos" },
@@ -264,23 +261,23 @@ export function AppLayout({ children }: { children: ReactNode }) {
             {!collapsed && (
               <>
                 <div className="mt-5 px-5 pb-1.5 flex items-center gap-2">
-                  <Clock className="w-3 h-3 text-[#9a9aa8]" />
-                  <span className="text-[10px] uppercase tracking-[0.08em] font-semibold text-[#9a9aa8]">
+                  <Clock className="w-3 h-3 text-[#9aa8a4]" />
+                  <span className="text-[10px] uppercase tracking-[0.08em] font-semibold text-[#9aa8a4]">
                     Recentes
                   </span>
                 </div>
                 <div className="flex flex-col px-2">
                   {[
-                    { label: "Análise de contrato de locação", to: "/" },
-                    { label: "Recurso de apelação cível", to: "/" },
-                    { label: "Petição inicial trabalhista", to: "/" },
-                    { label: "Parecer sobre LGPD", to: "/" },
-                    { label: "Audiência - caso Silva", to: "/" },
+                    { label: "Conciliação Bancária - Itaú", to: "/" },
+                    { label: "SPED Contábil 2024", to: "/" },
+                    { label: "DRE - Janeiro/2024", to: "/" },
+                    { label: "Balanço Patrimonial", to: "/" },
+                    { label: "Fechamento Contábil 01/2024", to: "/" },
                   ].map((item, i) => (
                     <Link
                       key={i}
                       to={item.to}
-                      className="px-2.5 py-1.5 rounded-md text-[12.5px] text-[#6b6b78] hover:bg-white hover:text-[#1a0a2e] transition-colors truncate"
+                      className="px-2.5 py-1.5 rounded-md text-[12.5px] text-[#6b7874] hover:bg-white hover:text-[#0a2520] transition-colors truncate"
                     >
                       {item.label}
                     </Link>
@@ -299,14 +296,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
           <div className={`p-4 border-t border-gray-100 flex items-center ${collapsed ? "justify-center" : "justify-between"} gap-2`}>
             {!collapsed && (
-              <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                Lector Live © 2026 - v2.0
+              <span className="text-[10px] uppercase tracking-wider text-gray-400 whitespace-nowrap">
+                Numera IA • v1.0.0
               </span>
             )}
             <button
               onClick={() => setCollapsed((c) => !c)}
               aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
-              className="w-7 h-7 shrink-0 border border-gray-200 rounded flex items-center justify-center text-gray-400 hover:text-[#8c3cf0] hover:border-[#8c3cf0]/40 hover:bg-gray-50 transition-colors"
+              className="w-7 h-7 shrink-0 border border-gray-200 rounded flex items-center justify-center text-gray-400 hover:text-[#0d9488] hover:border-[#0d9488]/40 hover:bg-gray-50 transition-colors"
             >
               <PanelLeft className={`w-4 h-4 transition-transform duration-300 ${collapsed ? "rotate-180" : ""}`} />
             </button>
