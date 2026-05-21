@@ -240,11 +240,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <SidebarGroup
               icon={<Calculator className="w-[18px] h-[18px]" />}
               label="Conciliações"
+              to="/conciliacao"
               collapsed={collapsed}
-              subItems={[
-                { label: "Agendamentos", to: "/webconferencia/agendamentos" },
-                { label: "Salas fixas", to: "/webconferencia/salas-fixas" },
-              ]}
             />
             <SidebarGroup
               icon={<Folder className="w-[18px] h-[18px]" />}

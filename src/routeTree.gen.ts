@@ -11,10 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DocumentosIndexRouteImport } from './routes/documentos.index'
+import { Route as ConciliacaoIndexRouteImport } from './routes/conciliacao.index'
 import { Route as WebconferenciaSalasFixasRouteImport } from './routes/webconferencia.salas-fixas'
 import { Route as WebconferenciaAgendamentosRouteImport } from './routes/webconferencia.agendamentos'
 import { Route as DocumentosTranscricoesRouteImport } from './routes/documentos.transcricoes'
 import { Route as DocumentosJurisprudenciaRouteImport } from './routes/documentos.jurisprudencia'
+import { Route as ConciliacaoIdRouteImport } from './routes/conciliacao.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -24,6 +26,11 @@ const IndexRoute = IndexRouteImport.update({
 const DocumentosIndexRoute = DocumentosIndexRouteImport.update({
   id: '/documentos/',
   path: '/documentos/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConciliacaoIndexRoute = ConciliacaoIndexRouteImport.update({
+  id: '/conciliacao/',
+  path: '/conciliacao/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WebconferenciaSalasFixasRoute =
@@ -49,65 +56,84 @@ const DocumentosJurisprudenciaRoute =
     path: '/documentos/jurisprudencia',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ConciliacaoIdRoute = ConciliacaoIdRouteImport.update({
+  id: '/conciliacao/$id',
+  path: '/conciliacao/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/conciliacao/$id': typeof ConciliacaoIdRoute
   '/documentos/jurisprudencia': typeof DocumentosJurisprudenciaRoute
   '/documentos/transcricoes': typeof DocumentosTranscricoesRoute
   '/webconferencia/agendamentos': typeof WebconferenciaAgendamentosRoute
   '/webconferencia/salas-fixas': typeof WebconferenciaSalasFixasRoute
+  '/conciliacao/': typeof ConciliacaoIndexRoute
   '/documentos/': typeof DocumentosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/conciliacao/$id': typeof ConciliacaoIdRoute
   '/documentos/jurisprudencia': typeof DocumentosJurisprudenciaRoute
   '/documentos/transcricoes': typeof DocumentosTranscricoesRoute
   '/webconferencia/agendamentos': typeof WebconferenciaAgendamentosRoute
   '/webconferencia/salas-fixas': typeof WebconferenciaSalasFixasRoute
+  '/conciliacao': typeof ConciliacaoIndexRoute
   '/documentos': typeof DocumentosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/conciliacao/$id': typeof ConciliacaoIdRoute
   '/documentos/jurisprudencia': typeof DocumentosJurisprudenciaRoute
   '/documentos/transcricoes': typeof DocumentosTranscricoesRoute
   '/webconferencia/agendamentos': typeof WebconferenciaAgendamentosRoute
   '/webconferencia/salas-fixas': typeof WebconferenciaSalasFixasRoute
+  '/conciliacao/': typeof ConciliacaoIndexRoute
   '/documentos/': typeof DocumentosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/conciliacao/$id'
     | '/documentos/jurisprudencia'
     | '/documentos/transcricoes'
     | '/webconferencia/agendamentos'
     | '/webconferencia/salas-fixas'
+    | '/conciliacao/'
     | '/documentos/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/conciliacao/$id'
     | '/documentos/jurisprudencia'
     | '/documentos/transcricoes'
     | '/webconferencia/agendamentos'
     | '/webconferencia/salas-fixas'
+    | '/conciliacao'
     | '/documentos'
   id:
     | '__root__'
     | '/'
+    | '/conciliacao/$id'
     | '/documentos/jurisprudencia'
     | '/documentos/transcricoes'
     | '/webconferencia/agendamentos'
     | '/webconferencia/salas-fixas'
+    | '/conciliacao/'
     | '/documentos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ConciliacaoIdRoute: typeof ConciliacaoIdRoute
   DocumentosJurisprudenciaRoute: typeof DocumentosJurisprudenciaRoute
   DocumentosTranscricoesRoute: typeof DocumentosTranscricoesRoute
   WebconferenciaAgendamentosRoute: typeof WebconferenciaAgendamentosRoute
   WebconferenciaSalasFixasRoute: typeof WebconferenciaSalasFixasRoute
+  ConciliacaoIndexRoute: typeof ConciliacaoIndexRoute
   DocumentosIndexRoute: typeof DocumentosIndexRoute
 }
 
@@ -125,6 +151,13 @@ declare module '@tanstack/react-router' {
       path: '/documentos'
       fullPath: '/documentos/'
       preLoaderRoute: typeof DocumentosIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/conciliacao/': {
+      id: '/conciliacao/'
+      path: '/conciliacao'
+      fullPath: '/conciliacao/'
+      preLoaderRoute: typeof ConciliacaoIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/webconferencia/salas-fixas': {
@@ -155,17 +188,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocumentosJurisprudenciaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/conciliacao/$id': {
+      id: '/conciliacao/$id'
+      path: '/conciliacao/$id'
+      fullPath: '/conciliacao/$id'
+      preLoaderRoute: typeof ConciliacaoIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ConciliacaoIdRoute: ConciliacaoIdRoute,
   DocumentosJurisprudenciaRoute: DocumentosJurisprudenciaRoute,
   DocumentosTranscricoesRoute: DocumentosTranscricoesRoute,
   WebconferenciaAgendamentosRoute: WebconferenciaAgendamentosRoute,
   WebconferenciaSalasFixasRoute: WebconferenciaSalasFixasRoute,
+  ConciliacaoIndexRoute: ConciliacaoIndexRoute,
   DocumentosIndexRoute: DocumentosIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
