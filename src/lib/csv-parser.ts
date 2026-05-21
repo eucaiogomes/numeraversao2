@@ -14,23 +14,108 @@ export interface CSVColumnMapping {
   accountCodeColumn?: string;
 }
 
-const DATE_HINTS = ['data', 'date', 'dt', 'datapagamento', 'datalancamento', 'datacompetencia', 'datacaixa'];
-const AMOUNT_HINTS = ['valor', 'amount', 'value', 'vl', 'vlr', 'montante', 'debito', 'credito', 'vlorcredito', 'vlordebito'];
-const DESC_HINTS = ['historico', 'descricao', 'description', 'memo', 'complemento', 'obs', 'observacao', 'hist', 'discriminacao'];
-const ACCOUNT_HINTS = ['conta', 'account', 'codconta', 'codigoconta', 'contabilidade'];
+const DATE_HINTS = [
+  'data', 'date', 'dt', 'datapagamento', 'datalancamento', 'datacompetencia',
+  'datacaixa', 'datamovimento', 'datmov', 'datlan', 'competencia', 'vencimento',
+  'emissao', 'lancamento', 'movimento', 'postdate', 'posted',
+];
+const AMOUNT_HINTS = [
+  'valor', 'amount', 'value', 'vl', 'vlr', 'montante', 'debito', 'credito',
+  'vlorcredito', 'vlordebito', 'debit', 'credit', 'saldo', 'total', 'preco',
+  'price', 'quantia', 'importe', 'valorlancamento', 'vlrlancamento', 'valoroperacao',
+];
+const DESC_HINTS = [
+  'historico', 'descricao', 'description', 'memo', 'complemento', 'obs',
+  'observacao', 'hist', 'discriminacao', 'historico', 'detalhes', 'detalhe',
+  'ocorrencia', 'natureza', 'documento', 'doc', 'operacao', 'tipo', 'lancamento',
+  'historicolan', 'complementolan', 'texto', 'narrative', 'name', 'nome',
+];
+const ACCOUNT_HINTS = [
+  'conta', 'account', 'codconta', 'codigoconta', 'contabilidade', 'cod', 'codigo',
+  'plano', 'ccusto', 'centrocusto',
+];
 
 function normalize(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]/g, '');
 }
 
-export function detectColumns(headers: string[]): Partial<CSVColumnMapping> {
+function looksLikeDate(v: string): boolean {
+  return /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/.test(v.trim()) ||
+    /^\d{4}[\/\-]\d{2}[\/\-]\d{2}/.test(v.trim()) ||
+    /^\d{8}$/.test(v.trim());
+}
+
+function looksLikeAmount(v: string): boolean {
+  const cleaned = v.replace(/[R$\s.]/g, '').replace(',', '.');
+  return !isNaN(parseFloat(cleaned)) && cleaned.trim() !== '';
+}
+
+export function detectColumns(
+  headers: string[],
+  rows?: Record<string, string>[],
+): Partial<CSVColumnMapping> {
   const find = (hints: string[]) =>
-    headers.find((h) => hints.some((hint) => normalize(h).includes(hint)));
-  return {
+    headers.find((h) => hints.some((hint) => normalize(h) === hint || normalize(h).startsWith(hint) || normalize(h).includes(hint)));
+
+  const byName: Partial<CSVColumnMapping> = {
     dateColumn: find(DATE_HINTS),
     amountColumn: find(AMOUNT_HINTS),
     descriptionColumn: find(DESC_HINTS),
     accountCodeColumn: find(ACCOUNT_HINTS),
+  };
+
+  // If all three required fields found by name, return immediately
+  if (byName.dateColumn && byName.amountColumn && byName.descriptionColumn) return byName;
+
+  // Fallback: scan up to 20 rows to detect columns by content
+  if (!rows || rows.length === 0) return byName;
+  const sample = rows.slice(0, 20);
+
+  // Score each header for each role
+  const scores: Record<string, { date: number; amount: number; text: number }> = {};
+  for (const h of headers) {
+    scores[h] = { date: 0, amount: 0, text: 0 };
+    for (const row of sample) {
+      const v = (row[h] ?? '').trim();
+      if (!v) continue;
+      if (looksLikeDate(v)) scores[h].date++;
+      else if (looksLikeAmount(v)) scores[h].amount++;
+      else if (v.length > 3) scores[h].text++;
+    }
+  }
+
+  const threshold = Math.ceil(sample.length * 0.4);
+  const byContent: Partial<CSVColumnMapping> = {};
+
+  if (!byName.dateColumn) {
+    const best = headers
+      .filter((h) => scores[h].date >= threshold)
+      .sort((a, b) => scores[b].date - scores[a].date)[0];
+    if (best) byContent.dateColumn = best;
+  }
+  if (!byName.amountColumn) {
+    const best = headers
+      .filter((h) => scores[h].amount >= threshold && h !== (byContent.dateColumn ?? byName.dateColumn))
+      .sort((a, b) => scores[b].amount - scores[a].amount)[0];
+    if (best) byContent.amountColumn = best;
+  }
+  if (!byName.descriptionColumn) {
+    const usedCols = new Set([byContent.dateColumn, byName.dateColumn, byContent.amountColumn, byName.amountColumn]);
+    const best = headers
+      .filter((h) => !usedCols.has(h) && scores[h].text >= threshold)
+      .sort((a, b) => scores[b].text - scores[a].text)[0];
+    if (best) byContent.descriptionColumn = best;
+  }
+
+  return {
+    dateColumn: byName.dateColumn ?? byContent.dateColumn,
+    amountColumn: byName.amountColumn ?? byContent.amountColumn,
+    descriptionColumn: byName.descriptionColumn ?? byContent.descriptionColumn,
+    accountCodeColumn: byName.accountCodeColumn,
   };
 }
 

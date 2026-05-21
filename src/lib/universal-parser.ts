@@ -67,7 +67,7 @@ export async function parseFile(file: File): Promise<ParsedSource> {
     if (headers.length === 0) {
       return { tempId, fileName: file.name, format: 'pdf', transactions: [], needsMapping: false };
     }
-    const detected = detectColumns(headers);
+    const detected = detectColumns(headers, rows);
     const autoOk = !!detected.dateColumn && !!detected.amountColumn && !!detected.descriptionColumn;
     if (!autoOk) {
       return { tempId, fileName: file.name, format: 'pdf', transactions: [], needsMapping: true, headers, rows, detectedMapping: detected };
@@ -93,7 +93,7 @@ export async function parseFile(file: File): Promise<ParsedSource> {
   if (format === 'csv' || format === 'txt') {
     const text = await file.text();
     const { headers, rows } = parseCSVText(text);
-    const detected = detectColumns(headers);
+    const detected = detectColumns(headers, rows);
     const autoOk = !!detected.dateColumn && !!detected.amountColumn && !!detected.descriptionColumn;
 
     if (!autoOk) {
@@ -108,7 +108,7 @@ export async function parseFile(file: File): Promise<ParsedSource> {
   if (format === 'xlsx') {
     const buffer = await file.arrayBuffer();
     const { headers, rows } = xlsxToRows(buffer);
-    const detected = detectColumns(headers);
+    const detected = detectColumns(headers, rows);
     const autoOk = !!detected.dateColumn && !!detected.amountColumn && !!detected.descriptionColumn;
 
     if (!autoOk) {
