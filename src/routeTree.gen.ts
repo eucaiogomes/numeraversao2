@@ -10,33 +10,105 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DocumentosIndexRouteImport } from './routes/documentos.index'
+import { Route as WebconferenciaSalasFixasRouteImport } from './routes/webconferencia.salas-fixas'
+import { Route as WebconferenciaAgendamentosRouteImport } from './routes/webconferencia.agendamentos'
+import { Route as DocumentosTranscricoesRouteImport } from './routes/documentos.transcricoes'
+import { Route as DocumentosJurisprudenciaRouteImport } from './routes/documentos.jurisprudencia'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocumentosIndexRoute = DocumentosIndexRouteImport.update({
+  id: '/documentos/',
+  path: '/documentos/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WebconferenciaSalasFixasRoute =
+  WebconferenciaSalasFixasRouteImport.update({
+    id: '/webconferencia/salas-fixas',
+    path: '/webconferencia/salas-fixas',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const WebconferenciaAgendamentosRoute =
+  WebconferenciaAgendamentosRouteImport.update({
+    id: '/webconferencia/agendamentos',
+    path: '/webconferencia/agendamentos',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DocumentosTranscricoesRoute = DocumentosTranscricoesRouteImport.update({
+  id: '/documentos/transcricoes',
+  path: '/documentos/transcricoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentosJurisprudenciaRoute =
+  DocumentosJurisprudenciaRouteImport.update({
+    id: '/documentos/jurisprudencia',
+    path: '/documentos/jurisprudencia',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/documentos/jurisprudencia': typeof DocumentosJurisprudenciaRoute
+  '/documentos/transcricoes': typeof DocumentosTranscricoesRoute
+  '/webconferencia/agendamentos': typeof WebconferenciaAgendamentosRoute
+  '/webconferencia/salas-fixas': typeof WebconferenciaSalasFixasRoute
+  '/documentos/': typeof DocumentosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/documentos/jurisprudencia': typeof DocumentosJurisprudenciaRoute
+  '/documentos/transcricoes': typeof DocumentosTranscricoesRoute
+  '/webconferencia/agendamentos': typeof WebconferenciaAgendamentosRoute
+  '/webconferencia/salas-fixas': typeof WebconferenciaSalasFixasRoute
+  '/documentos': typeof DocumentosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/documentos/jurisprudencia': typeof DocumentosJurisprudenciaRoute
+  '/documentos/transcricoes': typeof DocumentosTranscricoesRoute
+  '/webconferencia/agendamentos': typeof WebconferenciaAgendamentosRoute
+  '/webconferencia/salas-fixas': typeof WebconferenciaSalasFixasRoute
+  '/documentos/': typeof DocumentosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/documentos/jurisprudencia'
+    | '/documentos/transcricoes'
+    | '/webconferencia/agendamentos'
+    | '/webconferencia/salas-fixas'
+    | '/documentos/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/documentos/jurisprudencia'
+    | '/documentos/transcricoes'
+    | '/webconferencia/agendamentos'
+    | '/webconferencia/salas-fixas'
+    | '/documentos'
+  id:
+    | '__root__'
+    | '/'
+    | '/documentos/jurisprudencia'
+    | '/documentos/transcricoes'
+    | '/webconferencia/agendamentos'
+    | '/webconferencia/salas-fixas'
+    | '/documentos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DocumentosJurisprudenciaRoute: typeof DocumentosJurisprudenciaRoute
+  DocumentosTranscricoesRoute: typeof DocumentosTranscricoesRoute
+  WebconferenciaAgendamentosRoute: typeof WebconferenciaAgendamentosRoute
+  WebconferenciaSalasFixasRoute: typeof WebconferenciaSalasFixasRoute
+  DocumentosIndexRoute: typeof DocumentosIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,22 +120,52 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/documentos/': {
+      id: '/documentos/'
+      path: '/documentos'
+      fullPath: '/documentos/'
+      preLoaderRoute: typeof DocumentosIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/webconferencia/salas-fixas': {
+      id: '/webconferencia/salas-fixas'
+      path: '/webconferencia/salas-fixas'
+      fullPath: '/webconferencia/salas-fixas'
+      preLoaderRoute: typeof WebconferenciaSalasFixasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/webconferencia/agendamentos': {
+      id: '/webconferencia/agendamentos'
+      path: '/webconferencia/agendamentos'
+      fullPath: '/webconferencia/agendamentos'
+      preLoaderRoute: typeof WebconferenciaAgendamentosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documentos/transcricoes': {
+      id: '/documentos/transcricoes'
+      path: '/documentos/transcricoes'
+      fullPath: '/documentos/transcricoes'
+      preLoaderRoute: typeof DocumentosTranscricoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documentos/jurisprudencia': {
+      id: '/documentos/jurisprudencia'
+      path: '/documentos/jurisprudencia'
+      fullPath: '/documentos/jurisprudencia'
+      preLoaderRoute: typeof DocumentosJurisprudenciaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DocumentosJurisprudenciaRoute: DocumentosJurisprudenciaRoute,
+  DocumentosTranscricoesRoute: DocumentosTranscricoesRoute,
+  WebconferenciaAgendamentosRoute: WebconferenciaAgendamentosRoute,
+  WebconferenciaSalasFixasRoute: WebconferenciaSalasFixasRoute,
+  DocumentosIndexRoute: DocumentosIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
