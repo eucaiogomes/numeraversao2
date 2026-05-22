@@ -9,6 +9,7 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
+    "test:banking-flow": "node scripts/banking-flow-smoke.cjs",
     "format": "prettier --write ."
   },
   "dependencies": {

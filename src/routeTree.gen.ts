@@ -12,11 +12,13 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DocumentosIndexRouteImport } from './routes/documentos.index'
 import { Route as ConciliacaoIndexRouteImport } from './routes/conciliacao.index'
+import { Route as ConciliacaoBancariaIndexRouteImport } from './routes/conciliacao-bancaria.index'
 import { Route as WebconferenciaSalasFixasRouteImport } from './routes/webconferencia.salas-fixas'
 import { Route as WebconferenciaAgendamentosRouteImport } from './routes/webconferencia.agendamentos'
 import { Route as DocumentosTranscricoesRouteImport } from './routes/documentos.transcricoes'
 import { Route as DocumentosJurisprudenciaRouteImport } from './routes/documentos.jurisprudencia'
 import { Route as ConciliacaoIdRouteImport } from './routes/conciliacao.$id'
+import { Route as ConciliacaoBancariaIdRouteImport } from './routes/conciliacao-bancaria.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -33,6 +35,12 @@ const ConciliacaoIndexRoute = ConciliacaoIndexRouteImport.update({
   path: '/conciliacao/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConciliacaoBancariaIndexRoute =
+  ConciliacaoBancariaIndexRouteImport.update({
+    id: '/conciliacao-bancaria/',
+    path: '/conciliacao-bancaria/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const WebconferenciaSalasFixasRoute =
   WebconferenciaSalasFixasRouteImport.update({
     id: '/webconferencia/salas-fixas',
@@ -61,35 +69,46 @@ const ConciliacaoIdRoute = ConciliacaoIdRouteImport.update({
   path: '/conciliacao/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConciliacaoBancariaIdRoute = ConciliacaoBancariaIdRouteImport.update({
+  id: '/conciliacao-bancaria/$id',
+  path: '/conciliacao-bancaria/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/conciliacao-bancaria/$id': typeof ConciliacaoBancariaIdRoute
   '/conciliacao/$id': typeof ConciliacaoIdRoute
   '/documentos/jurisprudencia': typeof DocumentosJurisprudenciaRoute
   '/documentos/transcricoes': typeof DocumentosTranscricoesRoute
   '/webconferencia/agendamentos': typeof WebconferenciaAgendamentosRoute
   '/webconferencia/salas-fixas': typeof WebconferenciaSalasFixasRoute
+  '/conciliacao-bancaria/': typeof ConciliacaoBancariaIndexRoute
   '/conciliacao/': typeof ConciliacaoIndexRoute
   '/documentos/': typeof DocumentosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/conciliacao-bancaria/$id': typeof ConciliacaoBancariaIdRoute
   '/conciliacao/$id': typeof ConciliacaoIdRoute
   '/documentos/jurisprudencia': typeof DocumentosJurisprudenciaRoute
   '/documentos/transcricoes': typeof DocumentosTranscricoesRoute
   '/webconferencia/agendamentos': typeof WebconferenciaAgendamentosRoute
   '/webconferencia/salas-fixas': typeof WebconferenciaSalasFixasRoute
+  '/conciliacao-bancaria': typeof ConciliacaoBancariaIndexRoute
   '/conciliacao': typeof ConciliacaoIndexRoute
   '/documentos': typeof DocumentosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/conciliacao-bancaria/$id': typeof ConciliacaoBancariaIdRoute
   '/conciliacao/$id': typeof ConciliacaoIdRoute
   '/documentos/jurisprudencia': typeof DocumentosJurisprudenciaRoute
   '/documentos/transcricoes': typeof DocumentosTranscricoesRoute
   '/webconferencia/agendamentos': typeof WebconferenciaAgendamentosRoute
   '/webconferencia/salas-fixas': typeof WebconferenciaSalasFixasRoute
+  '/conciliacao-bancaria/': typeof ConciliacaoBancariaIndexRoute
   '/conciliacao/': typeof ConciliacaoIndexRoute
   '/documentos/': typeof DocumentosIndexRoute
 }
@@ -97,42 +116,50 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/conciliacao-bancaria/$id'
     | '/conciliacao/$id'
     | '/documentos/jurisprudencia'
     | '/documentos/transcricoes'
     | '/webconferencia/agendamentos'
     | '/webconferencia/salas-fixas'
+    | '/conciliacao-bancaria/'
     | '/conciliacao/'
     | '/documentos/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/conciliacao-bancaria/$id'
     | '/conciliacao/$id'
     | '/documentos/jurisprudencia'
     | '/documentos/transcricoes'
     | '/webconferencia/agendamentos'
     | '/webconferencia/salas-fixas'
+    | '/conciliacao-bancaria'
     | '/conciliacao'
     | '/documentos'
   id:
     | '__root__'
     | '/'
+    | '/conciliacao-bancaria/$id'
     | '/conciliacao/$id'
     | '/documentos/jurisprudencia'
     | '/documentos/transcricoes'
     | '/webconferencia/agendamentos'
     | '/webconferencia/salas-fixas'
+    | '/conciliacao-bancaria/'
     | '/conciliacao/'
     | '/documentos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ConciliacaoBancariaIdRoute: typeof ConciliacaoBancariaIdRoute
   ConciliacaoIdRoute: typeof ConciliacaoIdRoute
   DocumentosJurisprudenciaRoute: typeof DocumentosJurisprudenciaRoute
   DocumentosTranscricoesRoute: typeof DocumentosTranscricoesRoute
   WebconferenciaAgendamentosRoute: typeof WebconferenciaAgendamentosRoute
   WebconferenciaSalasFixasRoute: typeof WebconferenciaSalasFixasRoute
+  ConciliacaoBancariaIndexRoute: typeof ConciliacaoBancariaIndexRoute
   ConciliacaoIndexRoute: typeof ConciliacaoIndexRoute
   DocumentosIndexRoute: typeof DocumentosIndexRoute
 }
@@ -158,6 +185,13 @@ declare module '@tanstack/react-router' {
       path: '/conciliacao'
       fullPath: '/conciliacao/'
       preLoaderRoute: typeof ConciliacaoIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/conciliacao-bancaria/': {
+      id: '/conciliacao-bancaria/'
+      path: '/conciliacao-bancaria'
+      fullPath: '/conciliacao-bancaria/'
+      preLoaderRoute: typeof ConciliacaoBancariaIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/webconferencia/salas-fixas': {
@@ -195,16 +229,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConciliacaoIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/conciliacao-bancaria/$id': {
+      id: '/conciliacao-bancaria/$id'
+      path: '/conciliacao-bancaria/$id'
+      fullPath: '/conciliacao-bancaria/$id'
+      preLoaderRoute: typeof ConciliacaoBancariaIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ConciliacaoBancariaIdRoute: ConciliacaoBancariaIdRoute,
   ConciliacaoIdRoute: ConciliacaoIdRoute,
   DocumentosJurisprudenciaRoute: DocumentosJurisprudenciaRoute,
   DocumentosTranscricoesRoute: DocumentosTranscricoesRoute,
   WebconferenciaAgendamentosRoute: WebconferenciaAgendamentosRoute,
   WebconferenciaSalasFixasRoute: WebconferenciaSalasFixasRoute,
+  ConciliacaoBancariaIndexRoute: ConciliacaoBancariaIndexRoute,
   ConciliacaoIndexRoute: ConciliacaoIndexRoute,
   DocumentosIndexRoute: DocumentosIndexRoute,
 }
