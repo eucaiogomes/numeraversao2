@@ -142,14 +142,22 @@ function Badge({ n }: { n: number }) {
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#ececec] flex flex-col">
-      <header className="bg-gradient-to-r from-[#0a2520] via-[#0d3530] to-[#0a2520] text-white flex items-center justify-between px-4 h-16 relative z-20 shadow-md">
-        <div className="flex items-center gap-6">
+      <header className="bg-gradient-to-r from-[#0a2520] via-[#0d3530] to-[#0a2520] text-white flex items-center justify-between px-4 h-14 md:h-16 relative z-20 shadow-md">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setMobileOpen((o) => !o)}
+            className="md:hidden w-8 h-8 flex items-center justify-center text-white/70 hover:text-white"
+            aria-label="Abrir menu"
+          >
+            <PanelLeft className="w-5 h-5" />
+          </button>
           <Link to="/" className="flex items-center gap-2.5">
-            <NumeraMark className="w-8 h-8 text-[#5fd9be]" />
-            <span className="text-[22px] font-semibold tracking-tight text-white lowercase">numera</span>
+            <NumeraMark className="w-7 h-7 text-[#5fd9be]" />
+            <span className="text-[20px] font-semibold tracking-tight text-white lowercase">numera</span>
           </Link>
         </div>
 
@@ -210,10 +218,25 @@ export function AppLayout({ children }: { children: ReactNode }) {
       </header>
 
 
-      <div className="flex flex-1">
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-30 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      <div className="flex flex-1 min-h-0">
         <aside
-          style={{ width: collapsed ? 64 : 232 }}
-          className="bg-[#fafafb] border-r border-gray-200/70 shadow-[1px_0_0_rgba(10,37,32,0.02),4px_0_24px_-12px_rgba(10,37,32,0.08)] flex flex-col justify-between z-10 overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(.2,.7,.2,1)]"
+          style={{ width: collapsed ? 64 : 232, top: 56 }}
+          className={`
+            bg-[#fafafb] border-r border-gray-200/70
+            shadow-[1px_0_0_rgba(10,37,32,0.02),4px_0_24px_-12px_rgba(10,37,32,0.08)]
+            flex flex-col justify-between z-40 overflow-hidden
+            transition-[width,transform] duration-300 ease-[cubic-bezier(.2,.7,.2,1)]
+            fixed bottom-0 md:sticky md:top-0 md:self-start md:h-[calc(100vh-56px)] left-0
+            ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+          `}
         >
           <nav className="py-3">
             <div className={`${collapsed ? "px-2" : "px-3"} pb-2`}>
@@ -310,7 +333,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </aside>
 
-        <main className="flex-1 px-8 py-6 min-w-0">{children}</main>
+        <main className="flex-1 px-4 md:px-8 py-4 md:py-6 min-w-0 overflow-y-auto">{children}</main>
       </div>
     </div>
   );
