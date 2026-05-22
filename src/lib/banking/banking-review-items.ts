@@ -93,7 +93,8 @@ export function buildBankingReviewItems(
 
     if (result.status === 'divergent') {
       const date = result.firstDivergentCheckpoint?.date;
-      const candidate = result.statementEntriesOnDivergenceDate[0];
+      const candidate =
+        result.statementEntriesOnDivergenceDate[0] ?? result.investmentEntriesOnDivergenceDate?.[0];
       const id = itemId('divergence_check', result, date);
       items.push({
         id,
@@ -112,6 +113,27 @@ export function buildBankingReviewItems(
           : undefined,
         note: existingById.get(id)?.note,
         updatedAt: existingById.get(id)?.updatedAt,
+      });
+    }
+
+    for (const suggestedEntry of result.suggestedEntries ?? []) {
+      const id = `suggested_entry:${suggestedEntry.id}`;
+      const existing = existingById.get(id);
+      items.push({
+        id,
+        kind: 'suggested_entry',
+        status: existing?.status ?? 'open',
+        accountCode: result.accountCode,
+        accountName: result.accountName,
+        periodStart: result.periodStart,
+        periodEnd: result.periodEnd,
+        title: `Aprovar lancamento: ${suggestedEntry.history}`,
+        detail: `Debito: ${suggestedEntry.debitAccountCode ? `${suggestedEntry.debitAccountCode} - ` : ''}${suggestedEntry.debitAccountName}. Credito: ${suggestedEntry.creditAccountCode ? `${suggestedEntry.creditAccountCode} - ` : ''}${suggestedEntry.creditAccountName}. Valor: ${fmtCurrency(suggestedEntry.amount)}.`,
+        amount: suggestedEntry.amount,
+        dueDate: suggestedEntry.date,
+        candidateDescription: suggestedEntry.sourceDescription,
+        note: existing?.note,
+        updatedAt: existing?.updatedAt,
       });
     }
 

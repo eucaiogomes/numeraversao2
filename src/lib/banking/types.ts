@@ -145,6 +145,21 @@ export interface BalanceCheckpoint {
   matches: boolean;
 }
 
+export type SuggestedBankingEntryKind = 'investment_income' | 'investment_income_tax';
+
+export interface SuggestedBankingEntry {
+  id: string;
+  kind: SuggestedBankingEntryKind;
+  date: string;
+  debitAccountCode?: string;
+  debitAccountName: string;
+  creditAccountCode?: string;
+  creditAccountName: string;
+  amount: number;
+  history: string;
+  sourceDescription: string;
+}
+
 export interface BalanceReconciliationResult {
   accountCode: string;
   accountName: string;
@@ -158,6 +173,8 @@ export interface BalanceReconciliationResult {
   difference?: number;
   ledgerEntriesOnDivergenceDate: QuestorLedgerEntry[];
   statementEntriesOnDivergenceDate: BankStatementEntry[];
+  investmentEntriesOnDivergenceDate?: InvestmentStatementEntry[];
+  suggestedEntries?: SuggestedBankingEntry[];
   message: string;
 }
 
@@ -165,6 +182,7 @@ export type BankingReviewItemKind =
   | 'missing_statement'
   | 'missing_ledger'
   | 'divergence_check'
+  | 'suggested_entry'
   | 'insufficient_data';
 
 export type BankingReviewItemStatus = 'open' | 'done' | 'ignored';

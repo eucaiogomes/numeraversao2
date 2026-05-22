@@ -143,12 +143,41 @@ function cents(value) {
   assert.ok(
     novembro.statementEntriesOnDivergenceDate.some((entry) => cents(entry.amount) === -18348),
   );
-  assert.equal(aplicacao && aplicacao.status, 'investment_statement_parsed');
+  assert.equal(aplicacao && aplicacao.status, 'divergent');
   assert.equal(aplicacao && aplicacao.accountKind, 'cash_investment');
+  assert.equal(aplicacao.finalCheckpoint.date, '2025-10-31');
+  assert.equal(aplicacao.finalCheckpoint.ledgerBalanceDate, '2025-10-15');
+  assert.equal(cents(aplicacao.finalCheckpoint.statementBalance), 30948);
+  assert.equal(cents(aplicacao.finalCheckpoint.ledgerBalance), 30642);
+  assert.equal(cents(aplicacao.difference), -306);
+  assert.equal(aplicacao.investmentEntriesOnDivergenceDate.length, 1);
+  assert.equal(aplicacao.investmentEntriesOnDivergenceDate[0].date, '2025-10-31');
+  assert.equal(cents(aplicacao.investmentEntriesOnDivergenceDate[0].credit), 306);
+  assert.equal(aplicacao.suggestedEntries.length, 1);
+  assert.equal(aplicacao.suggestedEntries[0].kind, 'investment_income');
+  assert.equal(aplicacao.suggestedEntries[0].debitAccountCode, '5038');
+  assert.equal(aplicacao.suggestedEntries[0].creditAccountName, 'Receita de Aplicacao Financeira');
+  assert.equal(cents(aplicacao.suggestedEntries[0].amount), 306);
 
   const reviewItems = buildBankingReviewItems(results);
-  assert.equal(reviewItems.length, 2);
+  assert.equal(reviewItems.length, 4);
   assert.ok(reviewItems.some((item) => item.kind === 'missing_statement' && item.accountCode === '9'));
+  assert.ok(
+    reviewItems.some(
+      (item) =>
+        item.kind === 'divergence_check' &&
+        item.accountCode === '5038' &&
+        item.dueDate === '2025-10-31',
+    ),
+  );
+  assert.ok(
+    reviewItems.some(
+      (item) =>
+        item.kind === 'suggested_entry' &&
+        item.accountCode === '5038' &&
+        item.dueDate === '2025-10-31',
+    ),
+  );
   assert.ok(
     reviewItems.some(
       (item) =>

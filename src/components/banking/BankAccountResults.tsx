@@ -177,6 +177,70 @@ export function BankAccountResults({ results }: { results: BalanceReconciliation
               </div>
             )}
 
+            {(result.investmentEntriesOnDivergenceDate?.length ?? 0) > 0 && (
+              <div className="pt-3 border-t border-gray-100">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Banknote className="w-3.5 h-3.5 text-[#0d9488]" />
+                  <p className="text-[12px] font-semibold text-[#0a2520]">
+                    Movimentos da aplicacao sem lancamento no Razao
+                  </p>
+                </div>
+                <div className="divide-y divide-gray-50">
+                  {result.investmentEntriesOnDivergenceDate?.map((entry) => (
+                    <div key={`${entry.sequence}-${entry.date}-${entry.description}`} className="py-2 flex gap-3">
+                      <span className="text-[12px] text-gray-400 w-20 shrink-0">
+                        {fmtDate(entry.date)}
+                      </span>
+                      <span className="text-[12.5px] text-gray-600 flex-1">
+                        {entry.description}
+                      </span>
+                      <span className="text-[12.5px] font-semibold text-[#0a2520]">
+                        {fmtCurrency(Math.abs(entry.amount))}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(result.suggestedEntries?.length ?? 0) > 0 && (
+              <div className="pt-3 border-t border-gray-100">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#0d9488]" />
+                  <p className="text-[12px] font-semibold text-[#0a2520]">
+                    Sugestoes de lancamento
+                  </p>
+                </div>
+                <div className="divide-y divide-gray-50">
+                  {result.suggestedEntries?.map((entry) => (
+                    <div key={entry.id} className="py-2">
+                      <div className="flex gap-3">
+                        <span className="text-[12px] text-gray-400 w-20 shrink-0">
+                          {fmtDate(entry.date)}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12.5px] font-semibold text-[#0a2520]">
+                            {entry.history}
+                          </p>
+                          <p className="text-[12px] text-gray-500 mt-0.5">
+                            D: {entry.debitAccountCode ? `${entry.debitAccountCode} - ` : ''}
+                            {entry.debitAccountName}
+                          </p>
+                          <p className="text-[12px] text-gray-500">
+                            C: {entry.creditAccountCode ? `${entry.creditAccountCode} - ` : ''}
+                            {entry.creditAccountName}
+                          </p>
+                        </div>
+                        <span className="text-[12.5px] font-semibold text-[#0a2520]">
+                          {fmtCurrency(entry.amount)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {result.ledgerEntriesOnDivergenceDate.length > 0 && (
               <div className="pt-3 border-t border-gray-100">
                 <div className="flex items-center gap-1.5 mb-2">

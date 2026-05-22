@@ -18,6 +18,7 @@ const KIND_LABEL: Record<BankingReviewItemKind, string> = {
   missing_statement: 'Extrato pendente',
   missing_ledger: 'Razao pendente',
   divergence_check: 'Divergencia',
+  suggested_entry: 'Lancamento sugerido',
   insufficient_data: 'Dados insuficientes',
 };
 
@@ -36,6 +37,7 @@ function statusStyle(status: BankingReviewItemStatus): string {
 function kindIcon(kind: BankingReviewItemKind) {
   if (kind === 'missing_statement') return <FileWarning className="w-4 h-4" />;
   if (kind === 'divergence_check') return <AlertTriangle className="w-4 h-4" />;
+  if (kind === 'suggested_entry') return <ClipboardCheck className="w-4 h-4" />;
   if (kind === 'missing_ledger') return <ClipboardCheck className="w-4 h-4" />;
   return <AlertTriangle className="w-4 h-4" />;
 }
