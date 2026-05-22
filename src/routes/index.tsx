@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 import {
   Paperclip,
   Mic,
@@ -27,6 +27,9 @@ import type { TransactionSource } from '@/lib/matching-engine';
 import { saveReconciliation } from '@/lib/reconciliation-store';
 
 export const Route = createFileRoute('/')({
+  beforeLoad: () => {
+    throw redirect({ to: '/conciliacao-bancaria' });
+  },
   component: Index,
 });
 
