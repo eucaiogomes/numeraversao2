@@ -167,14 +167,26 @@ function ThinkingBubble({ message }: { message: ChatMessage }) {
   );
 }
 
-function QuestionBubble({ message }: { message: ChatMessage }) {
+function QuestionBubble({ message, onProceed }: { message: ChatMessage; onProceed?: () => void }) {
   return (
     <div className="flex items-start gap-3 max-w-full md:max-w-[640px]">
       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#0d9488] to-[#0a2520] flex items-center justify-center shrink-0 mt-0.5">
         <Banknote className="w-4 h-4 text-white" />
       </div>
-      <div className="bg-amber-50 border border-amber-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm text-[13.5px] text-[#7c4a03] leading-relaxed">
-        {message.text}
+      <div className="flex flex-col gap-2">
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm text-[13.5px] text-[#7c4a03] leading-relaxed">
+          {message.text}
+        </div>
+        {onProceed && (
+          <div className="flex gap-2 pl-1">
+            <button
+              onClick={onProceed}
+              className="px-3 py-1.5 rounded-lg bg-[#0d9488] text-white text-[12px] font-medium hover:bg-[#0b8276] transition-colors"
+            >
+              Prosseguir sem eles
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -211,10 +223,10 @@ function DashboardBubble({ message }: { message: ChatMessage }) {
   );
 }
 
-function ChatMessageRow({ message }: { message: ChatMessage }) {
+function ChatMessageRow({ message, onProceed }: { message: ChatMessage; onProceed?: () => void }) {
   if (message.kind === 'user') return <UserBubble message={message} />;
   if (message.kind === 'thinking') return <ThinkingBubble message={message} />;
-  if (message.kind === 'question') return <QuestionBubble message={message} />;
+  if (message.kind === 'question') return <QuestionBubble message={message} onProceed={onProceed} />;
   if (message.kind === 'dashboard') return <DashboardBubble message={message} />;
   if (message.isReady) return <ReadyBubble message={message} />;
   return <SystemBubble message={message} />;
@@ -488,6 +500,9 @@ export function BankingChat() {
     if (!hasFiles) {
       const lower = text.toLowerCase();
       const wantsToProceed =
+        lower.includes('sim') ||
+        lower.includes('yes') ||
+        lower.includes('ok') ||
         lower.includes('prosseguir') ||
         lower.includes('continuar') ||
         lower.includes('sem') ||
@@ -534,6 +549,28 @@ export function BankingChat() {
     }
   }
 
+  async function handleProceed() {
+    if (phase !== 'awaiting_files' || !accumulatedSummary) return;
+    addMessage({
+      id: crypto.randomUUID(),
+      kind: 'user',
+      text: 'Prosseguir sem eles',
+      createdAt: Date.now(),
+    });
+    addMessage({
+      id: crypto.randomUUID(),
+      kind: 'system',
+      text: 'Ok, prosseguindo com os extratos disponíveis.',
+      createdAt: Date.now(),
+    });
+    setPhase('processing');
+    try {
+      await runPhase4(accumulatedSummary);
+    } finally {
+      setPhase('idle');
+    }
+  }
+
   function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
@@ -564,7 +601,11 @@ export function BankingChat() {
 
       <div className="flex-1 overflow-y-auto space-y-4 pb-4 pr-1">
         {messages.map((message) => (
-          <ChatMessageRow key={message.id} message={message} />
+          <ChatMessageRow
+            key={message.id}
+            message={message}
+            onProceed={message.kind === 'question' && phase === 'awaiting_files' ? handleProceed : undefined}
+          />
         ))}
         <div ref={bottomRef} />
       </div>
