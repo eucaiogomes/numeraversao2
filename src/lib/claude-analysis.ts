@@ -1,4 +1,3 @@
-import { createServerFn } from '@tanstack/react-start';
 import type { Divergence, TransactionSource } from './matching-engine';
 
 interface DivergenceInput {
@@ -94,34 +93,32 @@ async function callAnthropic(prompt: string, apiKey: string): Promise<AnalysisRe
   return parseJsonResult(j.content?.[0]?.text ?? '');
 }
 
-export const analyzeDivergencesBatch = createServerFn({ method: 'POST' })
-  .inputValidator((data: unknown) => data as { divergences: DivergenceInput[]; period: string; sourceLabels: string[] })
-  .handler(async ({ data }) => {
-    const { divergences, period, sourceLabels } = data;
-    const groqKey = process.env.GROQ_API_KEY;
-    const openaiKey = process.env.OPENAI_API_KEY;
-    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+export async function analyzeDivergencesBatch(data: { divergences: DivergenceInput[]; period: string; sourceLabels: string[] }): Promise<AnalysisResult[]> {
+  const { divergences, period, sourceLabels } = data;
+  const groqKey = import.meta.env.VITE_GROQ_API_KEY as string | undefined;
+  const openaiKey = import.meta.env.VITE_OPENAI_API_KEY as string | undefined;
+  const anthropicKey = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined;
 
-    if (!groqKey && !openaiKey && !anthropicKey) {
-      throw new Error('Nenhuma chave de IA configurada');
-    }
+  if (!groqKey && !openaiKey && !anthropicKey) {
+    throw new Error('Nenhuma chave de IA configurada');
+  }
 
-    const prompt = buildPrompt(JSON.stringify(divergences, null, 2), period, sourceLabels);
+  const prompt = buildPrompt(JSON.stringify(divergences, null, 2), period, sourceLabels);
 
-    if (groqKey) {
-      try { return await callGroq(prompt, groqKey); } catch (e) {
-        console.warn('Groq falhou:', e instanceof Error ? e.message : e);
-        if (!openaiKey && !anthropicKey) throw e;
-      }
+  if (groqKey) {
+    try { return await callGroq(prompt, groqKey); } catch (e) {
+      console.warn('Groq falhou:', e instanceof Error ? e.message : e);
+      if (!openaiKey && !anthropicKey) throw e;
     }
-    if (openaiKey) {
-      try { return await callOpenAI(prompt, openaiKey); } catch (e) {
-        console.warn('OpenAI falhou:', e instanceof Error ? e.message : e);
-        if (!anthropicKey) throw e;
-      }
+  }
+  if (openaiKey) {
+    try { return await callOpenAI(prompt, openaiKey); } catch (e) {
+      console.warn('OpenAI falhou:', e instanceof Error ? e.message : e);
+      if (!anthropicKey) throw e;
     }
-    return await callAnthropic(prompt, anthropicKey!);
-  });
+  }
+  return await callAnthropic(prompt, anthropicKey!);
+}
 
 export function buildDivergenceInputs(
   divergences: Divergence[],
