@@ -19,6 +19,7 @@ const {
 } = require('../src/lib/banking/account-statement-matcher.ts');
 const {
   reconcileMatchedBankAccounts,
+  reconcileAccountStatementByBalance,
 } = require('../src/lib/banking/balance-reconciliation-engine.ts');
 const {
   buildBankingReviewItems,
@@ -159,6 +160,70 @@ function cents(value) {
   assert.equal(aplicacao.suggestedEntries[0].creditAccountName, 'Receita de Aplicacao Financeira');
   assert.equal(cents(aplicacao.suggestedEntries[0].amount), 306);
 
+  const irResult = reconcileAccountStatementByBalance({
+    account: {
+      accountCode: '5038',
+      isSynthetic: false,
+      classification: '1.1.01.003.001',
+      name: 'Aplicacao Programada Viacredi',
+      previousBalance: 0,
+      debit: 0,
+      credit: 0,
+      endingBalance: 0,
+      kind: 'cash_investment',
+      rowNumber: 1,
+      rawData: {},
+    },
+    ledgerAccount: {
+      accountCode: '5038',
+      accountName: 'Aplicacao Programada Viacredi',
+      entries: [],
+      dailyBalances: { '2025-10-31': 30948 },
+    },
+    investmentStatement: {
+      ...investmentOct,
+      finalBalance: 30947,
+      dailyBalances: { ...investmentOct.dailyBalances, '2025-10-31': 30947 },
+      entries: [
+        ...investmentOct.entries,
+        {
+          date: '2025-10-31',
+          description: 'IR APLICACAO',
+          kind: 'income_tax',
+          credit: 0,
+          debit: 1,
+          amount: -1,
+          balance: 30947,
+          sequence: 99,
+          rawTokens: [],
+        },
+      ],
+      incomeTaxDebits: [
+        {
+          date: '2025-10-31',
+          description: 'IR APLICACAO',
+          kind: 'income_tax',
+          credit: 0,
+          debit: 1,
+          amount: -1,
+          balance: 30947,
+          sequence: 99,
+          rawTokens: [],
+        },
+      ],
+    },
+    status: 'review',
+    confidence: 'high',
+    reason: 'Teste IR',
+  });
+  const irSuggestion = irResult.suggestedEntries.find(
+    (entry) => entry.kind === 'investment_income_tax',
+  );
+  assert.ok(irSuggestion);
+  assert.equal(irSuggestion.debitAccountName, 'IR sobre aplicacao financeira');
+  assert.equal(irSuggestion.creditAccountCode, '5038');
+  assert.equal(cents(irSuggestion.amount), 100);
+
   const reviewItems = buildBankingReviewItems(results);
   assert.equal(reviewItems.length, 4);
   assert.ok(reviewItems.some((item) => item.kind === 'missing_statement' && item.accountCode === '9'));
@@ -175,7 +240,8 @@ function cents(value) {
       (item) =>
         item.kind === 'suggested_entry' &&
         item.accountCode === '5038' &&
-        item.dueDate === '2025-10-31',
+        item.dueDate === '2025-10-31' &&
+        item.suggestedEntryId === aplicacao.suggestedEntries[0].id,
     ),
   );
   assert.ok(

@@ -132,6 +132,7 @@ export function buildBankingReviewItems(
         amount: suggestedEntry.amount,
         dueDate: suggestedEntry.date,
         candidateDescription: suggestedEntry.sourceDescription,
+        suggestedEntryId: suggestedEntry.id,
         note: existing?.note,
         updatedAt: existing?.updatedAt,
       });

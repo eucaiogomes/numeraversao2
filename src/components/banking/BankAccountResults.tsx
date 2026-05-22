@@ -230,6 +230,9 @@ export function BankAccountResults({ results }: { results: BalanceReconciliation
                             C: {entry.creditAccountCode ? `${entry.creditAccountCode} - ` : ''}
                             {entry.creditAccountName}
                           </p>
+                          <p className="text-[11.5px] text-gray-400 mt-1">
+                            Pendencia operacional: suggested_entry:{entry.id}
+                          </p>
                         </div>
                         <span className="text-[12.5px] font-semibold text-[#0a2520]">
                           {fmtCurrency(entry.amount)}

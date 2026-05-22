@@ -200,6 +200,7 @@ export interface BankingReviewItem {
   amount?: number;
   dueDate?: string;
   candidateDescription?: string;
+  suggestedEntryId?: string;
   note?: string;
   updatedAt?: string;
 }

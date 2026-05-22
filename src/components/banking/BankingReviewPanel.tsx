@@ -81,6 +81,11 @@ function ReviewItemCard({
               Candidato no extrato: {item.candidateDescription}
             </p>
           )}
+          {item.suggestedEntryId && (
+            <p className="text-[11.5px] text-gray-400 mt-1">
+              Vinculo: {item.suggestedEntryId}
+            </p>
+          )}
           {item.updatedAt && (
             <p className="text-[11.5px] text-gray-400 mt-1">
               Atualizada em {fmtDateTime(item.updatedAt)}
