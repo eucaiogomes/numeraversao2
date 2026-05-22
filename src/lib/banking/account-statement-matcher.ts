@@ -2,6 +2,7 @@ import type {
   AccountStatementMatch,
   QuestorLedgerParseResult,
   QuestorTrialBalanceAccount,
+  ViacrediInvestmentStatement,
   ViacrediStatement,
 } from './types';
 import { normalizeText } from './questor-utils';
@@ -28,6 +29,7 @@ export function matchBankAccountsToStatements(
   accounts: QuestorTrialBalanceAccount[],
   ledger: QuestorLedgerParseResult,
   statements: ViacrediStatement[],
+  investmentStatements: ViacrediInvestmentStatement[] = [],
 ): AccountStatementMatch[] {
   const matches: AccountStatementMatch[] = [];
 
@@ -37,6 +39,23 @@ export function matchBankAccountsToStatements(
       const ledgerAccount = ledger.accountsByCode[account.accountCode];
 
       if (account.kind === 'cash_investment') {
+        const investmentCandidate = investmentStatements.find((statement) =>
+          accountLooksLikeViacredi(account) && statement.institutionName === 'VIACREDI',
+        );
+
+        if (investmentCandidate) {
+          matches.push({
+            account,
+            ledgerAccount,
+            investmentStatement: investmentCandidate,
+            status: 'review',
+            confidence: 'high',
+            reason:
+              'Conta analitica de aplicacao financeira encontrada no balancete e extrato de aplicacao Viacredi lido.',
+          });
+          return;
+        }
+
         matches.push({
           account,
           ledgerAccount,

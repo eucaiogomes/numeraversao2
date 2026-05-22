@@ -115,10 +115,12 @@ function cents(value) {
   assert.equal(investmentOct.incomeTaxDebits.length, 0);
 
   const results = reconcileMatchedBankAccounts(
-    matchBankAccountsToStatements(trialBalance.bankLikeAccounts, ledger, [
-      statementOct,
-      statementNov,
-    ]),
+    matchBankAccountsToStatements(
+      trialBalance.bankLikeAccounts,
+      ledger,
+      [statementOct, statementNov],
+      [investmentOct],
+    ),
   );
 
   const bradesco = results.find((result) => result.accountCode === '9');
@@ -141,15 +143,12 @@ function cents(value) {
   assert.ok(
     novembro.statementEntriesOnDivergenceDate.some((entry) => cents(entry.amount) === -18348),
   );
-  assert.equal(aplicacao && aplicacao.status, 'missing_statement');
+  assert.equal(aplicacao && aplicacao.status, 'investment_statement_parsed');
   assert.equal(aplicacao && aplicacao.accountKind, 'cash_investment');
 
   const reviewItems = buildBankingReviewItems(results);
-  assert.equal(reviewItems.length, 3);
+  assert.equal(reviewItems.length, 2);
   assert.ok(reviewItems.some((item) => item.kind === 'missing_statement' && item.accountCode === '9'));
-  assert.ok(
-    reviewItems.some((item) => item.kind === 'missing_statement' && item.accountCode === '5038'),
-  );
   assert.ok(
     reviewItems.some(
       (item) =>

@@ -60,6 +60,21 @@ export function reconcileAccountStatementByBalance(
   const accountCode = match.account.accountCode;
   const accountKind = match.account.kind;
 
+  if (match.investmentStatement) {
+    return {
+      accountCode,
+      accountName,
+      accountKind,
+      status: 'investment_statement_parsed',
+      periodStart: match.investmentStatement.periodStart,
+      periodEnd: match.investmentStatement.periodEnd,
+      ledgerEntriesOnDivergenceDate: [],
+      statementEntriesOnDivergenceDate: [],
+      message:
+        'Extrato de aplicacao financeira lido com sucesso; a conciliacao com o Razao sera feita na fase 9.3.',
+    };
+  }
+
   if (!match.statement) {
     return {
       accountCode,

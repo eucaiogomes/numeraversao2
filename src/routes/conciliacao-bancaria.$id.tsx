@@ -3,6 +3,7 @@ import { ArrowLeft, Banknote, FileText } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { BankAccountResults } from '@/components/banking/BankAccountResults';
+import { BankingInvestmentStatements } from '@/components/banking/BankingInvestmentStatements';
 import { BankingReport } from '@/components/banking/BankingReport';
 import { BankingReviewPanel } from '@/components/banking/BankingReviewPanel';
 import {
@@ -155,6 +156,8 @@ function BankingReconciliationPage() {
             <p>Aplicacoes lidas: {reconciliation.investmentStatementsCount}</p>
           </div>
         </div>
+
+        <BankingInvestmentStatements statements={reconciliation.investmentStatements} />
 
         <BankingReviewPanel
           items={reconciliation.reviewItems}

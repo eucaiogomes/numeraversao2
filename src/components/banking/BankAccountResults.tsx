@@ -11,7 +11,8 @@ const STATUS_LABEL: Record<BalanceReconciliationResult['status'], string> = {
   reconciled: 'Conciliada',
   divergent: 'Divergente',
   missing_statement: 'Sem extrato',
-  missing_ledger: 'Sem razão',
+  missing_ledger: 'Sem razao',
+  investment_statement_parsed: 'Aplicacao lida',
   insufficient_data: 'Dados insuficientes',
 };
 
@@ -20,16 +21,17 @@ const STATUS_STYLE: Record<BalanceReconciliationResult['status'], string> = {
   divergent: 'bg-amber-50 text-amber-700 border-amber-200',
   missing_statement: 'bg-gray-50 text-gray-600 border-gray-200',
   missing_ledger: 'bg-red-50 text-red-700 border-red-200',
+  investment_statement_parsed: 'bg-teal-50 text-[#0d9488] border-teal-200',
   insufficient_data: 'bg-gray-50 text-gray-600 border-gray-200',
 };
 
 function fmtCurrency(value: number | undefined) {
-  if (value === undefined) return '—';
+  if (value === undefined) return '-';
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 function fmtDate(value: string | undefined) {
-  if (!value) return '—';
+  if (!value) return '-';
   const [year, month, day] = value.split('-');
   return `${day}/${month}/${year}`;
 }
@@ -37,6 +39,9 @@ function fmtDate(value: string | undefined) {
 function StatusIcon({ status }: { status: BalanceReconciliationResult['status'] }) {
   if (status === 'reconciled') return <CheckCircle2 className="w-5 h-5 text-emerald-600" />;
   if (status === 'divergent') return <AlertTriangle className="w-5 h-5 text-amber-600" />;
+  if (status === 'investment_statement_parsed') {
+    return <Banknote className="w-5 h-5 text-[#0d9488]" />;
+  }
   if (status === 'missing_statement') return <FileWarning className="w-5 h-5 text-gray-500" />;
   return <Search className="w-5 h-5 text-red-600" />;
 }
@@ -67,12 +72,12 @@ function BalanceRow({
         <p className="text-[13px] text-[#0a2520] mt-0.5">{fmtCurrency(statementBalance)}</p>
       </div>
       <div>
-        <p className="text-[11px] uppercase tracking-wide font-semibold text-gray-400">Razão</p>
+        <p className="text-[11px] uppercase tracking-wide font-semibold text-gray-400">Razao</p>
         <p className="text-[13px] text-[#0a2520] mt-0.5">{fmtCurrency(ledgerBalance)}</p>
       </div>
       <div>
         <p className="text-[11px] uppercase tracking-wide font-semibold text-gray-400">
-          Diferença
+          Diferenca
         </p>
         <p className="text-[13px] font-semibold text-[#0a2520] mt-0.5">
           {fmtCurrency(difference)}
@@ -109,7 +114,7 @@ export function BankAccountResults({ results }: { results: BalanceReconciliation
             </div>
             <div className="text-right shrink-0">
               <p className="text-[11px] uppercase tracking-wide font-semibold text-gray-400">
-                Diferença
+                Diferenca
               </p>
               <p className="text-[15px] font-bold text-[#0a2520] mt-0.5">
                 {fmtCurrency(result.difference)}
@@ -129,7 +134,7 @@ export function BankAccountResults({ results }: { results: BalanceReconciliation
             )}
             {result.lastMatchedCheckpoint && result.status === 'divergent' && (
               <BalanceRow
-                label="Último dia conciliado"
+                label="Ultimo dia conciliado"
                 date={result.lastMatchedCheckpoint.date}
                 statementBalance={result.lastMatchedCheckpoint.statementBalance}
                 ledgerBalance={result.lastMatchedCheckpoint.ledgerBalance}
@@ -138,7 +143,7 @@ export function BankAccountResults({ results }: { results: BalanceReconciliation
             )}
             {result.firstDivergentCheckpoint && (
               <BalanceRow
-                label="Primeira divergência"
+                label="Primeira divergencia"
                 date={result.firstDivergentCheckpoint.date}
                 statementBalance={result.firstDivergentCheckpoint.statementBalance}
                 ledgerBalance={result.firstDivergentCheckpoint.ledgerBalance}
@@ -151,7 +156,7 @@ export function BankAccountResults({ results }: { results: BalanceReconciliation
                 <div className="flex items-center gap-1.5 mb-2">
                   <Banknote className="w-3.5 h-3.5 text-[#0d9488]" />
                   <p className="text-[12px] font-semibold text-[#0a2520]">
-                    Lançamentos candidatos no extrato
+                    Lancamentos candidatos no extrato
                   </p>
                 </div>
                 <div className="divide-y divide-gray-50">
@@ -177,16 +182,16 @@ export function BankAccountResults({ results }: { results: BalanceReconciliation
                 <div className="flex items-center gap-1.5 mb-2">
                   <Search className="w-3.5 h-3.5 text-[#0d9488]" />
                   <p className="text-[12px] font-semibold text-[#0a2520]">
-                    Lançamentos do Razão na data divergente
+                    Lancamentos do Razao na data divergente
                   </p>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[12.5px]">
                     <thead>
                       <tr className="border-b border-gray-100 text-gray-400">
-                        <th className="py-2 pr-3 text-left font-medium">Histórico</th>
-                        <th className="py-2 px-3 text-right font-medium">Débito</th>
-                        <th className="py-2 px-3 text-right font-medium">Crédito</th>
+                        <th className="py-2 pr-3 text-left font-medium">Historico</th>
+                        <th className="py-2 px-3 text-right font-medium">Debito</th>
+                        <th className="py-2 px-3 text-right font-medium">Credito</th>
                         <th className="py-2 pl-3 text-right font-medium">Saldo</th>
                       </tr>
                     </thead>

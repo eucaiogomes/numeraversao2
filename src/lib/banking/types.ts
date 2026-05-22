@@ -133,6 +133,7 @@ export type BankReconciliationStatus =
   | 'divergent'
   | 'missing_statement'
   | 'missing_ledger'
+  | 'investment_statement_parsed'
   | 'insufficient_data';
 
 export interface BalanceCheckpoint {

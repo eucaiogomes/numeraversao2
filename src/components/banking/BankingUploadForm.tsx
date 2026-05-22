@@ -131,6 +131,7 @@ function ResultLine({ result }: { result: BalanceReconciliationResult }) {
     divergent: 'Divergente',
     missing_statement: 'Sem extrato',
     missing_ledger: 'Sem razão',
+    investment_statement_parsed: 'Aplicacao lida',
     insufficient_data: 'Dados insuficientes',
   };
 
@@ -209,6 +210,7 @@ export function BankingUploadForm() {
         trialBalance.bankLikeAccounts,
         ledger,
         statements,
+        investmentStatements,
       );
       const results = reconcileMatchedBankAccounts(matches);
       const id = crypto.randomUUID();
