@@ -25,6 +25,8 @@ export interface ChatMessage {
   attachments?: ChatAttachment[];
   thinkingSteps?: ThinkingStep[];
   isReady?: boolean;
+  canProceed?: boolean;
+  proceedText?: string;
   reconciliationResults?: BalanceReconciliationResult[];
   reconciliationReviewItems?: BankingReviewItem[];
   reconciliationId?: string;
@@ -177,13 +179,13 @@ function QuestionBubble({ message, onProceed }: { message: ChatMessage; onProcee
         <div className="bg-amber-50 border border-amber-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm text-[13.5px] text-[#7c4a03] leading-relaxed">
           {message.text}
         </div>
-        {onProceed && (
+        {onProceed && message.canProceed && (
           <div className="flex gap-2 pl-1">
             <button
               onClick={onProceed}
               className="px-3 py-1.5 rounded-lg bg-[#0d9488] text-white text-[12px] font-medium hover:bg-[#0b8276] transition-colors"
             >
-              Prosseguir sem eles
+              {message.proceedText ?? 'Prosseguir com os disponíveis'}
             </button>
           </div>
         )}
@@ -400,14 +402,14 @@ export function BankingChat() {
       competence,
       createdAt: new Date().toISOString(),
       fileNames: {
-        trialBalance: summary.trialBalance?.file.name ?? '',
+        trialBalance: summary.trialBalance?.file.name ?? 'Não enviado',
         ledger: summary.ledger?.file.name ?? '',
         statements: [
           ...summary.checkingStatements.map((s) => s.file.name),
           ...summary.investmentStatements.map((s) => s.file.name),
         ],
       },
-      bankAccountsCount: summary.trialBalance?.result.bankLikeAccounts.length ?? 0,
+      bankAccountsCount: summary.trialBalance?.result.bankLikeAccounts.length ?? results.length,
       ledgerAccountsCount: summary.ledger?.result.accounts.length ?? 0,
       statementsCount: summary.checkingStatements.length,
       investmentStatementsCount: summary.investmentStatements.length,
@@ -437,7 +439,7 @@ export function BankingChat() {
       kind: 'thinking',
       text: 'Verificando completude...',
       thinkingSteps: [
-        { id: 'tb', label: 'Balancete', status: summary.trialBalance ? 'done' : 'error', detail: summary.trialBalance ? `${summary.trialBalance.result.bankLikeAccounts.length} conta(s) bancária(s)` : 'Não encontrado' },
+        { id: 'tb', label: 'Balancete', status: summary.trialBalance ? 'done' : 'pending', detail: summary.trialBalance ? `${summary.trialBalance.result.bankLikeAccounts.length} conta(s) bancária(s)` : 'Opcional quando o Razão permite identificar a conta' },
         { id: 'lg', label: 'Razão', status: summary.ledger ? 'done' : 'error', detail: summary.ledger ? `${summary.ledger.result.accounts.length} conta(s)` : 'Não encontrado' },
         { id: 'st', label: 'Extratos', status: (summary.checkingStatements.length + summary.investmentStatements.length) > 0 ? 'done' : 'error', detail: `${summary.checkingStatements.length} corrente(s), ${summary.investmentStatements.length} aplicação(ões)` },
       ],
@@ -455,7 +457,9 @@ export function BankingChat() {
         id: crypto.randomUUID(),
         kind: 'system',
         isReady: true,
-        text: `Tudo certo! ${result.matchedAccounts} conta(s) bancária(s) com extrato. Iniciando conciliação...`,
+        text: result.warningText
+          ? `Tudo certo! ${result.matchedAccounts} conta(s) com extrato. ${result.warningText} Iniciando conciliação...`
+          : `Tudo certo! ${result.matchedAccounts} conta(s) com extrato. Iniciando conciliação...`,
         createdAt: Date.now(),
       });
       if (autoReconcile) {
@@ -469,6 +473,8 @@ export function BankingChat() {
         id: crypto.randomUUID(),
         kind: 'question',
         text: result.questionText,
+        canProceed: result.canProceed,
+        proceedText: result.proceedText,
         createdAt: Date.now(),
       });
       setPhase('awaiting_files');
@@ -509,11 +515,18 @@ export function BankingChat() {
         lower.includes('ignore') ||
         lower.includes('ignorar');
 
-      if (phase === 'awaiting_files' && wantsToProceed && accumulatedSummary) {
+      const lastQuestion = [...messages].reverse().find((msg) => msg.kind === 'question');
+
+      if (
+        phase === 'awaiting_files' &&
+        wantsToProceed &&
+        accumulatedSummary &&
+        lastQuestion?.canProceed
+      ) {
         addMessage({
           id: crypto.randomUUID(),
           kind: 'system',
-          text: 'Ok, prosseguindo com os extratos disponíveis.',
+          text: 'Ok, prosseguindo com os documentos disponíveis.',
           createdAt: Date.now(),
         });
         setPhase('processing');
@@ -522,6 +535,13 @@ export function BankingChat() {
         } finally {
           setPhase('idle');
         }
+      } else if (phase === 'awaiting_files' && wantsToProceed) {
+        addMessage({
+          id: crypto.randomUUID(),
+          kind: 'system',
+          text: 'Ainda não consigo prosseguir: preciso do Razão Questor e de pelo menos um extrato para comparar os saldos.',
+          createdAt: Date.now(),
+        });
       }
       return;
     }
@@ -551,16 +571,19 @@ export function BankingChat() {
 
   async function handleProceed() {
     if (phase !== 'awaiting_files' || !accumulatedSummary) return;
+    const lastQuestion = [...messages].reverse().find((msg) => msg.kind === 'question');
+    if (!lastQuestion?.canProceed) return;
+
     addMessage({
       id: crypto.randomUUID(),
       kind: 'user',
-      text: 'Prosseguir sem eles',
+      text: lastQuestion.proceedText ?? 'Prosseguir com os disponíveis',
       createdAt: Date.now(),
     });
     addMessage({
       id: crypto.randomUUID(),
       kind: 'system',
-      text: 'Ok, prosseguindo com os extratos disponíveis.',
+      text: 'Ok, prosseguindo com os documentos disponíveis.',
       createdAt: Date.now(),
     });
     setPhase('processing');
@@ -583,7 +606,7 @@ export function BankingChat() {
 
   const inputPlaceholder =
     phase === 'awaiting_files'
-      ? 'Envie os extratos faltantes ou escreva "prosseguir sem eles"...'
+      ? 'Envie os arquivos faltantes para continuar...'
       : isProcessing
         ? 'Processando...'
         : 'Envie arquivos ou escreva uma mensagem...';

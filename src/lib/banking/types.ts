@@ -167,6 +167,7 @@ export interface BalanceReconciliationResult {
   status: BankReconciliationStatus;
   periodStart?: string;
   periodEnd?: string;
+  checkpoints?: BalanceCheckpoint[];
   finalCheckpoint?: BalanceCheckpoint;
   lastMatchedCheckpoint?: BalanceCheckpoint;
   firstDivergentCheckpoint?: BalanceCheckpoint;

@@ -1,4 +1,7 @@
-import { matchBankAccountsToStatements } from './account-statement-matcher';
+import {
+  buildBankLikeAccountsFromLedger,
+  matchBankAccountsToStatements,
+} from './account-statement-matcher';
 import { reconcileAccountStatementByBalance } from './balance-reconciliation-engine';
 import { buildBankingReviewItems } from './banking-review-items';
 import type { ClassificationSummary } from './file-classifier-agent';
@@ -78,15 +81,21 @@ export async function runReconciliationAgent(
   summary: ClassificationSummary,
   onStepUpdate: (steps: ReconciliationStep[]) => void,
 ): Promise<ReconciliationAgentResult> {
-  if (!summary.trialBalance || !summary.ledger) {
-    throw new Error('Balancete ou Razão não disponível para conciliação.');
+  if (!summary.ledger) {
+    throw new Error('Razão Questor não disponível para conciliação.');
   }
 
   const allStatements = summary.checkingStatements.map((s) => s.result);
   const allInvestments = summary.investmentStatements.map((s) => s.result);
+  const bankLikeAccounts =
+    summary.trialBalance?.result.bankLikeAccounts ?? buildBankLikeAccountsFromLedger(summary.ledger.result);
+
+  if (bankLikeAccounts.length === 0) {
+    throw new Error('Não foi possível identificar contas bancárias no Razão ou no balancete.');
+  }
 
   const matches = matchBankAccountsToStatements(
-    summary.trialBalance.result.bankLikeAccounts,
+    bankLikeAccounts,
     summary.ledger.result,
     allStatements,
     allInvestments,

@@ -1,5 +1,7 @@
 import type {
   AccountStatementMatch,
+  BankAccountKind,
+  QuestorLedgerAccount,
   QuestorLedgerParseResult,
   QuestorTrialBalanceAccount,
   ViacrediInvestmentStatement,
@@ -9,6 +11,60 @@ import { normalizeText } from './questor-utils';
 
 function accountLooksLikeViacredi(account: QuestorTrialBalanceAccount): boolean {
   return normalizeText(account.name).includes('viacredi');
+}
+
+function ledgerAccountLooksLikeBank(account: QuestorLedgerAccount): boolean {
+  const normalizedName = normalizeText(account.accountName);
+  return [
+    'banco',
+    'bradesco',
+    'viacredi',
+    'sicoob',
+    'sicredi',
+    'itau',
+    'caixa',
+    'santander',
+    'banco do brasil',
+    'nubank',
+    'inter',
+    'aplicacao',
+  ].some((hint) => normalizedName.includes(hint));
+}
+
+function detectLedgerAccountKind(account: QuestorLedgerAccount): BankAccountKind {
+  const normalizedName = normalizeText(account.accountName);
+  if (normalizedName.includes('aplicacao')) return 'cash_investment';
+  if (ledgerAccountLooksLikeBank(account)) return 'bank_account';
+  return 'other';
+}
+
+export function buildBankLikeAccountsFromLedger(
+  ledger: QuestorLedgerParseResult,
+): QuestorTrialBalanceAccount[] {
+  return ledger.accounts
+    .filter((account) => ledgerAccountLooksLikeBank(account))
+    .map((account, index) => {
+      const debit = account.entries.reduce((sum, entry) => sum + entry.debit, 0);
+      const credit = account.entries.reduce((sum, entry) => sum + entry.credit, 0);
+      const lastEntry = [...account.entries].sort((a, b) => a.date.localeCompare(b.date)).at(-1);
+
+      return {
+        accountCode: account.accountCode,
+        isSynthetic: false,
+        classification: '',
+        name: account.accountName,
+        previousBalance: 0,
+        debit,
+        credit,
+        endingBalance: lastEntry?.balance ?? 0,
+        kind: detectLedgerAccountKind(account),
+        rowNumber: index + 1,
+        rawData: {
+          source: 'ledger_inferred',
+        },
+      };
+    })
+    .filter((account) => account.kind !== 'other');
 }
 
 function statementLooksLikeViacredi(statement: ViacrediStatement): boolean {
@@ -32,11 +88,12 @@ export function matchBankAccountsToStatements(
   investmentStatements: ViacrediInvestmentStatement[] = [],
 ): AccountStatementMatch[] {
   const matches: AccountStatementMatch[] = [];
+  const accountsByCode = ledger.accountsByCode ?? {};
 
   accounts
     .filter((account) => account.kind !== 'other')
     .forEach((account) => {
-      const ledgerAccount = ledger.accountsByCode[account.accountCode];
+      const ledgerAccount = accountsByCode[account.accountCode];
 
       if (account.kind === 'cash_investment') {
         const investmentCandidate = investmentStatements.find((statement) =>
