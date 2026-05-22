@@ -20,13 +20,11 @@ import {
 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { AppLayout } from '@/components/AppLayout';
-import { parseFile, applyMappingToSource, SOURCE_COLORS } from '@/lib/universal-parser';
+import { parseFile, SOURCE_COLORS } from '@/lib/universal-parser';
 import type { ParsedSource } from '@/lib/universal-parser';
 import { runMatchingMultiSource } from '@/lib/matching-engine';
 import type { TransactionSource } from '@/lib/matching-engine';
 import { saveReconciliation } from '@/lib/reconciliation-store';
-import { CSVColumnMapper } from '@/components/reconciliation/CSVColumnMapper';
-import type { CSVColumnMapping } from '@/lib/csv-parser';
 
 export const Route = createFileRoute('/')({
   component: Index,
@@ -104,7 +102,6 @@ function Index() {
   const [isDragging, setIsDragging] = useState(false);
 
   const [parsedSources, setParsedSources] = useState<ParsedSource[]>([]);
-  const [mappingSource, setMappingSource] = useState<ParsedSource | null>(null);
 
   const [processing, setProcessing] = useState(false);
   const [stepLabel, setStepLabel] = useState('');
@@ -113,7 +110,7 @@ function Index() {
   const current = TABS.find((t) => t.id === activeTab) ?? TABS[0];
 
   const readySources = parsedSources.filter((p) => !p.needsMapping && p.transactions.length > 0);
-  const canSend = readySources.length >= 2 && !processing && !mappingSource;
+  const canSend = readySources.length >= 2 && !processing;
 
   const autoResize = () => {
     const el = textareaRef.current;
@@ -161,8 +158,6 @@ function Index() {
     setProcessing(false);
     setStepLabel('');
 
-    const needsMapping = newParsed.find((p) => p.needsMapping);
-    if (needsMapping) setMappingSource(needsMapping);
   }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -182,21 +177,6 @@ function Index() {
     setParsedSources((prev) => prev.filter((p) => p.tempId !== tempId));
   }
 
-  function handleMappingConfirm(mapping: CSVColumnMapping) {
-    if (!mappingSource) return;
-    const txs = applyMappingToSource(mappingSource, mapping);
-    setParsedSources((prev) =>
-      prev.map((p) =>
-        p.tempId === mappingSource.tempId ? { ...p, transactions: txs, needsMapping: false } : p,
-      ),
-    );
-    setMappingSource(null);
-    // Check if another file in the queue needs mapping
-    const nextNeedsMapping = parsedSources.find(
-      (p) => p.tempId !== mappingSource.tempId && p.needsMapping,
-    );
-    if (nextNeedsMapping) setMappingSource(nextNeedsMapping);
-  }
 
   async function handleSend() {
     if (!canSend) return;
@@ -237,18 +217,6 @@ function Index() {
 
   return (
     <AppLayout>
-      {mappingSource && (
-        <CSVColumnMapper
-          headers={mappingSource.headers ?? []}
-          detected={mappingSource.detectedMapping ?? {}}
-          onConfirm={handleMappingConfirm}
-          onCancel={() => {
-            removeSource(mappingSource.tempId);
-            setMappingSource(null);
-          }}
-        />
-      )}
-
       <div className="max-w-2xl mx-auto pt-10 pb-24">
         <div
           className="flex flex-col items-center mb-8 juris-rise"
@@ -332,14 +300,7 @@ function Index() {
                       {p.transactions.length} lanç.
                     </span>
                   )}
-                  {p.needsMapping && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setMappingSource(p); }}
-                      className="text-[10px] underline opacity-70 hover:opacity-100"
-                    >
-                      Mapear colunas
-                    </button>
-                  )}
+
                   {p.transactions.length === 0 && !p.needsMapping && (
                     <span className="text-[10px] opacity-70">vazio</span>
                   )}
