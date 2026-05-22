@@ -6,6 +6,7 @@ import { BankAccountResults } from '@/components/banking/BankAccountResults';
 import { BankingInvestmentStatements } from '@/components/banking/BankingInvestmentStatements';
 import { BankingReport } from '@/components/banking/BankingReport';
 import { BankingReviewPanel } from '@/components/banking/BankingReviewPanel';
+import { QuestorImportExportPanel } from '@/components/banking/QuestorImportExportPanel';
 import {
   fetchBankingReconciliation,
   getBankingReconciliation,
@@ -163,6 +164,8 @@ function BankingReconciliationPage() {
           items={reconciliation.reviewItems}
           onUpdate={handleReviewItemUpdate}
         />
+
+        <QuestorImportExportPanel reconciliation={reconciliation} />
 
         <BankingReport reconciliation={reconciliation} />
 

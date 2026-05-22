@@ -24,6 +24,9 @@ const {
 const {
   buildBankingReviewItems,
 } = require('../src/lib/banking/banking-review-items.ts');
+const {
+  buildApprovedQuestorImportFile,
+} = require('../src/lib/banking/questor-import-export.ts');
 
 const downloads = path.join(process.env.USERPROFILE || process.env.HOME || '', 'Downloads');
 
@@ -264,6 +267,57 @@ function cents(value) {
   const approvedItem = approvedReviewItems.find((item) => item.id === suggestedReviewItem.id);
   assert.equal(approvedItem.status, 'approved');
   assert.equal(approvedItem.note, 'Lancamento conferido pela equipe.');
+
+  const blockedImportFile = buildApprovedQuestorImportFile({
+    id: 'smoke-questor-import',
+    competence: '2025-10',
+    createdAt: new Date().toISOString(),
+    fileNames: {
+      trialBalance: path.basename(files.trialBalance),
+      ledger: path.basename(files.ledger),
+      statements: [path.basename(files.statementOct), path.basename(files.investmentOct)],
+    },
+    bankAccountsCount: trialBalance.bankLikeAccounts.length,
+    ledgerAccountsCount: ledger.accounts.length,
+    statementsCount: 1,
+    investmentStatementsCount: 1,
+    investmentStatements: [investmentOct],
+    results,
+    reviewItems: approvedReviewItems,
+  });
+  assert.equal(blockedImportFile.approvedCount, 1);
+  assert.equal(blockedImportFile.rows.length, 0);
+  assert.equal(blockedImportFile.blockedEntries.length, 1);
+
+  const questorImportFile = buildApprovedQuestorImportFile(
+    {
+      id: 'smoke-questor-import',
+      competence: '2025-10',
+      createdAt: new Date().toISOString(),
+      fileNames: {
+        trialBalance: path.basename(files.trialBalance),
+        ledger: path.basename(files.ledger),
+        statements: [path.basename(files.statementOct), path.basename(files.investmentOct)],
+      },
+      bankAccountsCount: trialBalance.bankLikeAccounts.length,
+      ledgerAccountsCount: ledger.accounts.length,
+      statementsCount: 1,
+      investmentStatementsCount: 1,
+      investmentStatements: [investmentOct],
+      results,
+      reviewItems: approvedReviewItems,
+    },
+    {
+      investmentIncomeCreditAccountCode: '9001',
+      historyCode: '1',
+    },
+  );
+  assert.equal(questorImportFile.rows.length, 1);
+  assert.equal(questorImportFile.blockedEntries.length, 0);
+  assert.equal(
+    questorImportFile.content,
+    '31/10/2025;5038;9001;3,06;1;Rendimento Aplicacao Financeira 10/2025\r\n',
+  );
 
   console.log('Fluxo bancario validado com sucesso.');
 })();
